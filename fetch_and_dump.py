@@ -208,9 +208,8 @@ def select_players() -> list[str]:
         except Exception as e:
             print(f"[warn] Failed to read players.json: {e}")
 
-    # 3) Fallback static list
-    print(f"[info] Falling back to DEFAULT_PLAYERS ({len(DEFAULT_PLAYERS)})")
-    return DEFAULT_PLAYERS
+    print("[FAIL] No players found via WOM or site/data/players.json")
+    sys.exit(2)
 
 # ----------------- write players manifest -----------------
 def write_players_manifest(player_names):
