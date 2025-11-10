@@ -1,8 +1,11 @@
-/data/*
-  Cache-Control: no-cache, must-revalidate
-
 /images/*
   Cache-Control: public, max-age=31536000, immutable
 
-/*
-  Cache-Control: public, max-age=3600
+/data/*.json
+  Cache-Control: public, max-age=60
+
+/script.js
+  Cache-Control: public, max-age=300
+
+/styles.css
+  Cache-Control: public, max-age=300
