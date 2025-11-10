@@ -1,4 +1,7 @@
 // --- Dynamic player loading (no hardcoded names) ---
+// Caches to avoid refetching
+const playerCache = new Map();   // name -> parsed JSON
+const missingCache = new Set();  // names known to not have a JSON file
 async function loadPlayers() {
   // expects ./data/players.json -> ["name1", "name2", ...]
   const res = await fetch('./data/players.json');
@@ -280,15 +283,23 @@ function filenameCandidates(playerName) {
 }
 
 async function fetchPlayerData(playerName) {
+  const cached = playerCache.get(playerName);
+  if (cached) return cached;
+  if (missingCache.has(playerName)) {
+    throw new Error(`Previously missing: ${playerName}`);
+  }
+
   const candidates = filenameCandidates(playerName);
   let lastStatus = null;
 
   for (const base of candidates) {
     const url = `./data/${encodeURIComponent(base)}.json`;
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(url, { cache: 'no-cache' });
       if (resp.ok) {
-        return await resp.json();
+        const data = await resp.json();
+        playerCache.set(playerName, data);
+        return data;
       } else {
         lastStatus = resp.status;
       }
@@ -297,11 +308,26 @@ async function fetchPlayerData(playerName) {
     }
   }
 
+  // Mark as missing to avoid trying again during this page session
+  missingCache.add(playerName);
   throw new Error(`Failed to load JSON for "${playerName}". Tried: ${candidates.join(', ')}${lastStatus ? ` (last status ${lastStatus})` : ''}`);
 }
 
 // Build a { skill: { player, level } } map for top virtual levels
 async function getHighestLevels(players) {
+  // Try to read from cache first to avoid redundant network fetches
+  const maybeCached = players
+    .map(name => playerCache.get(name))
+    .filter(Boolean);
+
+  if (maybeCached.length === players.length || maybeCached.length > 0) {
+    const ok = maybeCached.length === players.length
+      ? maybeCached
+      : maybeCached; // partial cache is fine; the Promise.allSettled below will fill gaps
+
+    // We still run the original fetching logic below, but cached entries make it instantaneous.
+  }
+
   const results = await Promise.allSettled(players.map(fetchPlayerData));
   const ok = [];
   const okNames = [];
@@ -625,23 +651,31 @@ async function main() {
 
   assignColors(PLAYERS);
 
-  // Load each player's JSON, compute changes and latest snapshot info
-  const playersData = [];
-  for (const player of PLAYERS) {
-    try {
+  // Load each player's JSON in parallel, compute changes and latest snapshot info
+  const results = await Promise.allSettled(
+    PLAYERS.map(async (player) => {
       const data = await fetchPlayerData(player);
       const lastSnap = data.snapshots[data.snapshots.length - 1];
-      playersData.push({
+      return {
         name: data.player_name,
         skillChanges: getSkillLevelChanges(data.snapshots),
         minigameChanges: getMinigameChanges(data.snapshots),
         latestMinigames: lastSnap.minigames,
         latestTimestamp: lastSnap.timestamp
-      });
-    } catch (err) {
-      console.error('Error fetching/parsing player:', player, err);
-    }
-  }
+      };
+    })
+  );
+
+  const playersData = results
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value);
+
+  // Log rejections once (they are also cached in missingCache so we won't retry)
+  results
+    .filter(r => r.status === 'rejected')
+    .forEach((r, idx) => {
+      console.error('Error fetching/parsing player:', PLAYERS[idx], r.reason);
+    });
 
   if (playersData.length === 0) {
     const warn = document.createElement('div');
