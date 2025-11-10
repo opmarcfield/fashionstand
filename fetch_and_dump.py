@@ -6,13 +6,10 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 import requests
 
-OUTPUT_DIR = "docs/data"
+OUTPUT_DIR = "site/data"
 WOM_BASE = "https://api.wiseoldman.net/v2"
 WOM_GROUP_ID = 10348  # change if you want
 HISCORES_URL = "https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={}"
-
-# Fallback players if WOM & players.json are unavailable
-DEFAULT_PLAYERS = ["vaOPA", "vaPEEXI", "vaRautaMake", "vaROSQIS"]
 
 class SchemaError(RuntimeError):
     pass
