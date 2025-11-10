@@ -44,7 +44,152 @@ function buildXpThresholds(maxLevel = 126) {
   }
   return thresholds;
 }
+
 const OSRS_XP_THRESHOLDS = buildXpThresholds(126);
+
+// ---- Refresh banner helpers (Europe/Helsinki @ 06:00 daily) ----
+function getHelsinkiOffset(now = new Date()) {
+  // e.g., "GMT+2" or "UTC+3" -> extract +2 / +3
+  const s = new Intl.DateTimeFormat('en', {
+    timeZone: 'Europe/Helsinki',
+    timeZoneName: 'shortOffset',
+    hour: '2-digit'
+  }).format(now);
+  const m = s.match(/([+-]\d{1,2})/);
+  if (!m) return '+02:00'; // safe default
+  const signNum = m[1];
+  const abs = Math.abs(parseInt(signNum, 10));
+  const sign = signNum.startsWith('-') ? '-' : '+';
+  const hh = String(abs).padStart(2, '0');
+  return `${sign}${hh}:00`;
+}
+
+function nextHelsinkiSix(now = new Date()) {
+  // Get today's date in Helsinki
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Helsinki',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  }).formatToParts(now).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+  const helHour = parseInt(parts.hour, 10);
+  const offset = getHelsinkiOffset(now);
+
+  // If already past 06:00 Helsinki today, schedule tomorrow
+  let y = parts.year, m = parts.month, d = parts.day;
+  if (helHour >= 6) {
+    // bump date by one day in Helsinki
+    const helDateStr = `${parts.year}-${parts.month}-${parts.day}T12:00:00${offset}`; // 12 keeps us safely in the same day in Helsinki
+    const helNoon = new Date(helDateStr);
+    const tomorrow = new Date(helNoon.getTime() + 24 * 60 * 60 * 1000);
+    const tparts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Helsinki',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(tomorrow).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+    y = tparts.year; m = tparts.month; d = tparts.day;
+  }
+  return new Date(`${y}-${m}-${d}T06:00:00${offset}`);
+}
+
+function timeAgo(fromDate, toDate = new Date()) {
+  const ms = Math.max(0, toDate - fromDate);
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function formatLocal(dt) {
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    hour12: false
+  }).format(dt);
+}
+
+function formatInHelsinki(dt) {
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Helsinki',
+    timeZoneName: 'short'
+  }).format(dt);
+}
+
+function timeUntil(toDate, fromDate = new Date()) {
+  const ms = Math.max(0, toDate - fromDate);
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'less than a minute';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'}`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'}`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'}`;
+}
+
+function renderRefreshPill(lastIso) {
+  const container = document.querySelector('.container') || document.body;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'refresh-pill';
+
+  // last refresh (relative only)
+  let lastStr = 'unknown';
+  if (lastIso) {
+    const lastDate = new Date(lastIso);
+    lastStr = timeAgo(lastDate);
+  }
+
+  // next refresh (relative only)
+  const next = nextHelsinkiSix();
+  const untilStr = timeUntil(next);
+
+  // Build content using textContent to avoid encoding issues
+  const lastSpan = document.createElement('span');
+  lastSpan.className = 'refresh-piece';
+
+  const emoji = document.createElement('span');
+  emoji.className = 'refresh-emoji';
+  emoji.textContent = '\u23F0'; // Alarm clock
+
+  const lastLabel = document.createElement('strong');
+  lastLabel.textContent = 'Last:';
+
+  lastSpan.appendChild(emoji);
+  lastSpan.appendChild(document.createTextNode(' '));
+  lastSpan.appendChild(lastLabel);
+  lastSpan.appendChild(document.createTextNode(' ' + lastStr));
+
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  dot.setAttribute('aria-hidden', 'true');
+  dot.textContent = '\u2022'; // bullet separator
+
+  const nextSpan = document.createElement('span');
+  nextSpan.className = 'refresh-piece';
+  const nextLabel = document.createElement('strong');
+  nextLabel.textContent = 'Next:';
+  nextSpan.appendChild(nextLabel);
+  nextSpan.appendChild(document.createTextNode(' in ' + untilStr));
+
+  // Clear and append
+  wrap.innerHTML = '';
+  wrap.appendChild(lastSpan);
+  wrap.appendChild(dot);
+  wrap.appendChild(nextSpan);
+
+  // Insert just below the intro/banner (if present), else at top
+  const intro = document.querySelector('.intro-box');
+  if (intro && intro.parentNode) {
+    intro.parentNode.insertBefore(wrap, intro.nextSibling);
+  } else {
+    container.prepend(wrap);
+  }
+}
 
 function xpToVirtualLevel(xp) {
   // Find highest level such that xp >= threshold
@@ -490,7 +635,8 @@ async function main() {
         name: data.player_name,
         skillChanges: getSkillLevelChanges(data.snapshots),
         minigameChanges: getMinigameChanges(data.snapshots),
-        latestMinigames: lastSnap.minigames
+        latestMinigames: lastSnap.minigames,
+        latestTimestamp: lastSnap.timestamp
       });
     } catch (err) {
       console.error('Error fetching/parsing player:', player, err);
@@ -504,6 +650,14 @@ async function main() {
     document.getElementById('results').appendChild(warn);
     return;
   }
+
+  // Compute most recent snapshot timestamp across players and show banner
+  const lastIso = playersData
+    .map(p => p.latestTimestamp)
+    .filter(Boolean)
+    .sort()
+    .pop();
+  renderRefreshPill(lastIso);
 
   // Render sections
   renderDailyNews(playersData);
