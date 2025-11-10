@@ -5,11 +5,13 @@ import sys
 from datetime import datetime, timedelta
 from urllib.parse import quote
 import requests
+from typing import Optional
 
 OUTPUT_DIR = "site/data"
 WOM_BASE = "https://api.wiseoldman.net/v2"
 WOM_GROUP_ID = 10348  # change if you want
 HISCORES_URL = "https://secure.runescape.com/m=hiscore_oldschool/index_lite.ws?player={}"
+DATA_DIR = os.path.join("site", "data")
 
 class SchemaError(RuntimeError):
     pass
@@ -58,7 +60,7 @@ def fetch_wom_group_members(group_id: int, timeout=15):
     return names
 
 # ----------------- Fetch / Parse hiscores -----------------
-def fetch_raw(player_name: str, timeout=10) -> str | None:
+def fetch_raw(player_name: str, timeout=10) -> Optional[str]:
     url = HISCORES_URL.format(quote(player_name, safe=""))
     r = requests.get(url, timeout=timeout)
     if r.status_code == 200:
@@ -210,6 +212,15 @@ def select_players() -> list[str]:
     print(f"[info] Falling back to DEFAULT_PLAYERS ({len(DEFAULT_PLAYERS)})")
     return DEFAULT_PLAYERS
 
+# ----------------- write players manifest -----------------
+def write_players_manifest(player_names):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    manifest_path = os.path.join(DATA_DIR, "players.json")
+    # Use the display names you want to show on the site. Filenames can still use underscores.
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(sorted(player_names), f, ensure_ascii=False, indent=2)
+    print(f"Wrote manifest: {manifest_path}")
+
 # ----------------- Main -----------------
 def main():
     # Load the single source of truth
@@ -239,6 +250,8 @@ def main():
 
     if failures:
         print(f"[warn] {failures} player(s) failed to fetch.")
+    
+    write_players_manifest(players) 
 
 if __name__ == "__main__":
     main()
