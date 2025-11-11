@@ -35,6 +35,25 @@ function prettyName(name) {
   return DISPLAY_NAME[name] || name;
 }
 
+// --- Show/Hide Rank preference ---
+function getShowRankPref() {
+  return localStorage.getItem('showRank') === '1';
+}
+
+function getRankToggleTargets() {
+  return [document.body, document.querySelector('.container')].filter(Boolean);
+}
+
+function setShowRankPref(on) {
+  localStorage.setItem('showRank', on ? '1' : '0');
+  getRankToggleTargets().forEach(el => el.classList.toggle('show-ranks', on));
+}
+
+function applyRankPref() {
+  const on = getShowRankPref();
+  getRankToggleTargets().forEach(el => el.classList.toggle('show-ranks', on));
+}
+
 // --- Virtual level helpers (OSRS) ---
 // Build XP thresholds for levels 1..126 using the standard OSRS formula
 function buildXpThresholds(maxLevel = 126) {
@@ -185,6 +204,20 @@ function renderRefreshPill(lastIso) {
   wrap.appendChild(dot);
   wrap.appendChild(nextSpan);
 
+  // Rank toggle button
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.id = 'rankToggle'; 
+  toggleBtn.className = 'rank-toggle';
+  const startOn = getShowRankPref();
+  toggleBtn.textContent = startOn ? 'Hide ranks' : 'Show ranks';
+  toggleBtn.addEventListener('click', () => {
+    const nowOn = !getShowRankPref();
+    setShowRankPref(nowOn);
+    toggleBtn.textContent = nowOn ? 'Hide ranks' : 'Show ranks';
+  });
+  wrap.appendChild(toggleBtn);
+
   // Insert just below the intro/banner (if present), else at top
   const intro = document.querySelector('.intro-box');
   if (intro && intro.parentNode) {
@@ -313,21 +346,8 @@ async function fetchPlayerData(playerName) {
   throw new Error(`Failed to load JSON for "${playerName}". Tried: ${candidates.join(', ')}${lastStatus ? ` (last status ${lastStatus})` : ''}`);
 }
 
-// Build a { skill: { player, level } } map for top virtual levels
+// Build a { skill: { player, level, rank } } map for top virtual levels, with rank info
 async function getHighestLevels(players) {
-  // Try to read from cache first to avoid redundant network fetches
-  const maybeCached = players
-    .map(name => playerCache.get(name))
-    .filter(Boolean);
-
-  if (maybeCached.length === players.length || maybeCached.length > 0) {
-    const ok = maybeCached.length === players.length
-      ? maybeCached
-      : maybeCached; // partial cache is fine; the Promise.allSettled below will fill gaps
-
-    // We still run the original fetching logic below, but cached entries make it instantaneous.
-  }
-
   const results = await Promise.allSettled(players.map(fetchPlayerData));
   const ok = [];
   const okNames = [];
@@ -342,32 +362,34 @@ async function getHighestLevels(players) {
   if (ok.length === 0) {
     throw new Error('No player JSONs could be loaded. Check file names in site/data and players.json.');
   }
+
   const latestSnapshots = ok.map(p => p.snapshots[p.snapshots.length - 1]);
   const skills = Object.keys(latestSnapshots[0].skills);
   const highest = {};
 
   skills.forEach(skill => {
     if (skill === 'Overall') {
-      // Choose Overall leader by highest total experience (not virtual level).
-      // Ties on XP are broken by higher level (should be same, but just in case).
-      let best = { player: '', level: -1, xp: -1 };
+      // Overall leader by highest total XP; tie-break by level
+      let best = { player: '', level: -1, xp: -1, rank: null };
       latestSnapshots.forEach((snap, idx) => {
-        const entry = snap.skills['Overall'];
+        const entry = snap.skills['Overall'] || {};
         const xp = entry.experience ?? 0;
         const lvl = entry.level ?? 0;
+        const rnk = (typeof entry.rank === 'number') ? entry.rank : null;
         if (xp > best.xp || (xp === best.xp && lvl > best.level)) {
-          best = { player: okNames[idx], level: lvl, xp };
+          best = { player: okNames[idx], level: lvl, xp, rank: rnk };
         }
       });
-      highest[skill] = { player: best.player, level: best.level };
+      highest[skill] = { player: best.player, level: best.level, rank: best.rank };
     } else {
-      // Other skills: pick leader by virtual level derived from XP
-      let best = { player: '', level: -1 };
+      // Other skills: leader by virtual level derived from XP
+      let best = { player: '', level: -1, rank: null };
       latestSnapshots.forEach((snap, idx) => {
-        const entry = snap.skills[skill];
+        const entry = snap.skills[skill] || {};
         const vLvl = getDisplayedLevel(skill, entry.level, entry.experience);
+        const rnk = (typeof entry.rank === 'number') ? entry.rank : null;
         if (vLvl > best.level) {
-          best = { player: okNames[idx], level: vLvl };
+          best = { player: okNames[idx], level: vLvl, rank: rnk };
         }
       });
       highest[skill] = best;
@@ -412,11 +434,24 @@ async function displayHighestLevels(players) {
   table.style.width = '100%';
 
   const headerRow = document.createElement('tr');
-  ['Skill', 'Leader', 'Level'].forEach(txt => {
-    const th = document.createElement('th');
-    th.textContent = txt;
-    headerRow.appendChild(th);
-  });
+  const hdrSkill = document.createElement('th');
+  hdrSkill.textContent = 'Skill';
+  headerRow.appendChild(hdrSkill);
+
+  const hdrLeader = document.createElement('th');
+  hdrLeader.textContent = 'Leader';
+  headerRow.appendChild(hdrLeader);
+
+  const hdrRank = document.createElement('th');
+  hdrRank.textContent = 'Rank';
+  hdrRank.classList.add('col-rank');
+  hdrRank.setAttribute('data-col', 'rank');
+  headerRow.appendChild(hdrRank);
+
+  const hdrLevel = document.createElement('th');
+  hdrLevel.textContent = 'Level';
+  headerRow.appendChild(hdrLevel);
+
   table.appendChild(headerRow);
 
   Object.entries(highestLevels).forEach(([skill, data]) => {
@@ -439,6 +474,13 @@ async function displayHighestLevels(players) {
     playerCell.style.color = leaderColors[data.player] || 'black';
     playerCell.style.fontWeight = 'bold';
     row.appendChild(playerCell);
+
+    const rankCell = document.createElement('td');
+    rankCell.classList.add('col-rank');
+    rankCell.setAttribute('data-col', 'rank');
+    const rnk = (typeof data.rank === 'number') ? `#${data.rank.toLocaleString()}` : '—';
+    rankCell.textContent = rnk;
+    row.appendChild(rankCell);
 
     const levelCell = document.createElement('td');
     levelCell.textContent = data.level;
@@ -582,11 +624,25 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
   tbl.style.width = '100%';
 
   const hdr = document.createElement('tr');
-  ['Item', 'Leader', 'Score'].forEach(text => {
-    const th = document.createElement('th');
-    th.textContent = text;
-    hdr.appendChild(th);
-  });
+
+  const thItem = document.createElement('th');
+  thItem.textContent = 'Item';
+  hdr.appendChild(thItem);
+
+  const thLeader = document.createElement('th');
+  thLeader.textContent = 'Leader';
+  hdr.appendChild(thLeader);
+
+  const thRank = document.createElement('th');
+  thRank.textContent = 'Rank';
+  thRank.classList.add('col-rank');
+  thRank.setAttribute('data-col', 'rank');
+  hdr.appendChild(thRank);
+
+  const thScore = document.createElement('th');
+  thScore.textContent = 'Score';
+  hdr.appendChild(thScore);
+
   tbl.appendChild(hdr);
 
   items.forEach(item => {
@@ -619,6 +675,21 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
     cellLeader.style.color = leaderColors[topPlayer] || 'black';
     row.appendChild(cellLeader);
 
+    // NEW: Rank cell (optional, hidden unless toggled)
+    const cellRank = document.createElement('td');
+    cellRank.classList.add('col-rank');
+    cellRank.setAttribute('data-col', 'rank');
+    let rankVal = '—';
+    if (topPlayer) {
+      const playerObj = playersData.find(p => p.name === topPlayer);
+      const mgEntry = playerObj?.latestMinigames?.[item];
+      if (mgEntry && typeof mgEntry.rank === 'number') {
+        rankVal = `#${mgEntry.rank.toLocaleString()}`;
+      }
+    }
+    cellRank.textContent = rankVal;
+    row.appendChild(cellRank);
+
     const cellCount = document.createElement('td');
     cellCount.textContent = topCount.toLocaleString();
     row.appendChild(cellCount);
@@ -638,6 +709,8 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
 
 // ------------------ Main ------------------
 async function main() {
+  // Apply saved preference for showing ranks
+  applyRankPref();
   let PLAYERS;
   try {
     PLAYERS = await loadPlayers();

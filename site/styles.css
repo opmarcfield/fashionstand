@@ -258,3 +258,102 @@ body::before {
   margin-right: 2px;
   opacity: 0.9;
 }
+
+/* ===== Ranks column visibility (default hidden) ===== */
+table th.col-rank,
+table td.col-rank,
+table th[data-col="rank"],
+table td[data-col="rank"] {
+  display: none;
+}
+
+/* When the user enables ranks, show the column */
+body.show-ranks table th.col-rank,
+body.show-ranks table td.col-rank,
+body.show-ranks table th[data-col="rank"],
+body.show-ranks table td[data-col="rank"] {
+  display: table-cell;
+}
+
+/* Optional: on very wide screens you can still keep it user-controlled.
+   If you'd rather auto-show on desktop, uncomment this:
+@media (min-width: 1100px) {
+  table th.col-rank,
+  table td.col-rank,
+  table th[data-col="rank"],
+  table td[data-col="rank"] {
+    display: table-cell;
+  }
+}
+*/
+
+/* ===== Rank toggle – themed leather/wood pill button ===== */
+#rankToggle {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.1;
+  color: #fff;
+  /* warm leather/wood gradient */
+  background: linear-gradient(180deg, #8d6e63 0%, #6d4c41 100%);
+  border: 1px solid rgba(34, 26, 21, 0.6);
+  border-radius: 9999px;
+  padding: 6px 14px 6px 12px; /* room for icon */
+
+  /* subtle bevel & glow */
+  box-shadow:
+    0 10px 18px rgba(0,0,0,0.25),   /* outer drop */
+    inset 0 1px 0 rgba(255,255,255,0.18), /* top highlight */
+    inset 0 -1px 0 rgba(0,0,0,0.25);      /* bottom shade */
+
+  transition: transform 90ms ease, box-shadow 160ms ease,
+              background 180ms ease, filter 160ms ease;
+  position: relative;
+}
+
+/* small badge icon inside the pill */
+#rankToggle::before {
+  /* Medal emoji U+1F3C5 via CSS escape */
+  content: "\1F3C5";
+  /* Prefer color-emoji fonts, then fall back */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Poppins, sans-serif;
+  display: inline-block;
+  margin-right: 8px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.25));
+}
+
+/* hover: brighten and lift */
+#rankToggle:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    0 12px 22px rgba(0,0,0,0.30),
+    inset 0 1px 0 rgba(255,255,255,0.22),
+    inset 0 -1px 0 rgba(0,0,0,0.28);
+}
+
+/* active: press down */
+#rankToggle:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 6px 10px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    inset 0 -1px 0 rgba(0,0,0,0.35);
+}
+
+/* focus ring for keyboard users */
+#rankToggle:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,0.85),
+    0 0 0 4px rgba(141,110,99,0.65),
+    0 10px 18px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(0,0,0,0.25);
+}
+
+/* when ranks are shown, make the pill slightly darker/richer */
+body.show-ranks #rankToggle {
+  background: linear-gradient(180deg, #5d4037 0%, #4e342e 100%);
+  border-color: rgba(28, 22, 18, 0.75);
+}
