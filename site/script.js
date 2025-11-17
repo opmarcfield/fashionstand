@@ -26,6 +26,57 @@ function assignColors(players) {
     leaderColors[p] = COLOR_PALETTE[i % COLOR_PALETTE.length];
   });
 }
+// --- Optional per-player small icons next to names (externalizable) ---
+// Defaults live here to keep working even if external JSON is missing.
+const DEFAULT_PLAYER_ICONS = {
+  // map lowercased player names to icon image paths
+  'vaopa': './images/gim.png',
+  'scuttlebrut': './images/gim.png',
+  'jackiechunn': './images/ironman.png'
+};
+// This object will be populated at runtime by merging defaults with an optional JSON file.
+let PLAYER_ICONS = { ...DEFAULT_PLAYER_ICONS };
+
+// Optionally load overrides from ./data/player_icons.json
+// Expected shape: { "vaopa": "./images/gim.png", "alice": "./images/iconX.png" }
+async function loadPlayerIconsFromJson(url = './data/player_icons.json') {
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const obj = await res.json();
+    if (obj && typeof obj === 'object') {
+      const normalized = {};
+      Object.keys(obj).forEach(k => {
+        normalized[String(k).toLowerCase()] = obj[k];
+      });
+      PLAYER_ICONS = { ...DEFAULT_PLAYER_ICONS, ...normalized };
+    }
+  } catch (e) {
+    console.warn('PLAYER_ICONS: using defaults; failed to load external mapping:', e);
+  }
+}
+
+function getPlayerIcon(name) {
+  if (!name) return null;
+  return PLAYER_ICONS[String(name).toLowerCase()] || null;
+}
+
+function createPlayerNameNode(name) {
+  const wrap = document.createElement('span');
+  wrap.textContent = name || '';
+  const icon = getPlayerIcon(name);
+  if (icon) {
+    const img = document.createElement('img');
+    img.src = icon;
+    img.alt = 'icon';
+    img.style.width = '16px';
+    img.style.height = '16px';
+    img.style.verticalAlign = 'middle';
+    img.style.marginLeft = '6px';
+    wrap.appendChild(img);
+  }
+  return wrap;
+}
 
 // Pretty display names for certain minigame keys
 const DISPLAY_NAME = {
@@ -225,6 +276,47 @@ function renderRefreshPill(lastIso) {
   } else {
     container.prepend(wrap);
   }
+
+}
+
+// --- Collapsible sections (minimal change) ---
+function injectCollapsibleStyles() {
+  if (document.getElementById('collapsible-style')) return;
+  const style = document.createElement('style');
+  style.id = 'collapsible-style';
+  style.textContent = `
+    .category-box.collapsed > *:not(h2) { display: none !important; }
+    .category-box > h2 { cursor: pointer; }
+  `;
+  document.head.appendChild(style);
+}
+
+function makeCollapsible(box, keyHint) {
+  const header = box.querySelector('h2');
+  if (!header) return;
+
+  const storageKey = `collapse:${keyHint || header.textContent.trim()}`;
+  header.setAttribute('role', 'button');
+  header.setAttribute('tabindex', '0');
+
+  const apply = () => {
+    const collapsed = localStorage.getItem(storageKey) === '1';
+    box.classList.toggle('collapsed', collapsed);
+    header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  };
+
+  const toggle = () => {
+    const now = !(localStorage.getItem(storageKey) === '1');
+    localStorage.setItem(storageKey, now ? '1' : '0');
+    apply();
+  };
+
+  header.addEventListener('click', toggle);
+  header.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+  });
+
+  apply();
 }
 
 function xpToVirtualLevel(xp) {
@@ -346,8 +438,9 @@ async function fetchPlayerData(playerName) {
   throw new Error(`Failed to load JSON for "${playerName}". Tried: ${candidates.join(', ')}${lastStatus ? ` (last status ${lastStatus})` : ''}`);
 }
 
-// Build a { skill: { player, level, rank } } map for top virtual levels, with rank info
-async function getHighestLevels(players) {
+
+// Build Top-N per skill (using virtual levels for non-Overall)
+async function getTopNSkillLeaders(players, N = 5) {
   const results = await Promise.allSettled(players.map(fetchPlayerData));
   const ok = [];
   const okNames = [];
@@ -355,52 +448,38 @@ async function getHighestLevels(players) {
     if (res.status === 'fulfilled') {
       ok.push(res.value);
       okNames.push(players[idx]);
-    } else {
-      console.warn('Skipping player (failed to load):', players[idx], res.reason);
     }
   });
   if (ok.length === 0) {
-    throw new Error('No player JSONs could be loaded. Check file names in site/data and players.json.');
+    throw new Error('No player JSONs could be loaded.');
   }
 
   const latestSnapshots = ok.map(p => p.snapshots[p.snapshots.length - 1]);
   const skills = Object.keys(latestSnapshots[0].skills);
-  const highest = {};
+
+  const topMap = {}; // skill -> [{ player, level, rank }... ]
 
   skills.forEach(skill => {
-    if (skill === 'Overall') {
-      // Overall leader by highest total XP; tie-break by level
-      let best = { player: '', level: -1, xp: -1, rank: null };
-      latestSnapshots.forEach((snap, idx) => {
-        const entry = snap.skills['Overall'] || {};
-        const xp = entry.experience ?? 0;
-        const lvl = entry.level ?? 0;
-        const rnk = (typeof entry.rank === 'number') ? entry.rank : null;
-        if (xp > best.xp || (xp === best.xp && lvl > best.level)) {
-          best = { player: okNames[idx], level: lvl, xp, rank: rnk };
-        }
-      });
-      highest[skill] = { player: best.player, level: best.level, rank: best.rank };
-    } else {
-      // Other skills: leader by virtual level derived from XP
-      let best = { player: '', level: -1, rank: null };
-      latestSnapshots.forEach((snap, idx) => {
-        const entry = snap.skills[skill] || {};
-        const vLvl = getDisplayedLevel(skill, entry.level, entry.experience);
-        const rnk = (typeof entry.rank === 'number') ? entry.rank : null;
-        if (vLvl > best.level) {
-          best = { player: okNames[idx], level: vLvl, rank: rnk };
-        }
-      });
-      highest[skill] = best;
-    }
+    const entries = [];
+    latestSnapshots.forEach((snap, idx) => {
+      const s = snap.skills[skill] || {};
+      const level = (skill === 'Overall')
+        ? (s.level ?? 0) // keep stored level for Overall
+        : getDisplayedLevel(skill, s.level, s.experience);
+      const rank = (typeof s.rank === 'number') ? s.rank : null;
+      entries.push({ player: okNames[idx], level, rank });
+    });
+
+    // Sort: higher level first; tie-break by better (lower) rank
+    entries.sort((a, b) => (b.level - a.level) || ((a.rank ?? Infinity) - (b.rank ?? Infinity)));
+    topMap[skill] = entries.slice(0, N);
   });
 
-  return highest;
+  return topMap;
 }
 
 async function displayHighestLevels(players) {
-  const highestLevels = await getHighestLevels(players);
+  const topNMap = await getTopNSkillLeaders(players, 5);
 
   const skillIcons = {
     'Overall': './images/Overall icon.png',
@@ -454,8 +533,14 @@ async function displayHighestLevels(players) {
 
   table.appendChild(headerRow);
 
-  Object.entries(highestLevels).forEach(([skill, data]) => {
+  Object.entries(topNMap).forEach(([skill, topN]) => {
+    if (!Array.isArray(topN) || topN.length === 0) return;
+    const leader = topN[0];
+
+    // Visible leader row
     const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    row.title = 'Click to see runner-ups';
 
     const skillCell = document.createElement('td');
     const skillIcon = document.createElement('img');
@@ -470,23 +555,63 @@ async function displayHighestLevels(players) {
     row.appendChild(skillCell);
 
     const playerCell = document.createElement('td');
-    playerCell.textContent = data.player;
-    playerCell.style.color = leaderColors[data.player] || 'black';
+    playerCell.textContent = leader.player;
+    playerCell.style.color = leaderColors[leader.player] || 'black';
     playerCell.style.fontWeight = 'bold';
     row.appendChild(playerCell);
 
     const rankCell = document.createElement('td');
     rankCell.classList.add('col-rank');
     rankCell.setAttribute('data-col', 'rank');
-    const rnk = (typeof data.rank === 'number') ? `#${data.rank.toLocaleString()}` : '—';
+    const rnk = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : '—';
     rankCell.textContent = rnk;
     row.appendChild(rankCell);
 
     const levelCell = document.createElement('td');
-    levelCell.textContent = data.level;
+    levelCell.textContent = leader.level;
     row.appendChild(levelCell);
 
+    // Hidden runner-ups row (#2..#5)
+    const detailRow = document.createElement('tr');
+    const detailCell = document.createElement('td');
+    detailCell.colSpan = 4;
+    detailRow.style.display = 'none';
+
+    const inner = document.createElement('div');
+    inner.style.padding = '8px 12px';
+    inner.style.background = 'rgba(0,0,0,0.03)';
+    inner.style.borderLeft = '3px solid #ddd';
+
+    const list = document.createElement('table');
+    list.style.width = '100%';
+    list.style.fontSize = '0.95em';
+
+    const rh = document.createElement('tr');
+    const rhPos = document.createElement('th'); rhPos.textContent = '#'; rh.appendChild(rhPos);
+    const rhName = document.createElement('th'); rhName.textContent = 'Player'; rh.appendChild(rhName);
+    const rhRank = document.createElement('th'); rhRank.textContent = 'Rank'; rhRank.classList.add('col-rank'); rhRank.setAttribute('data-col','rank'); rh.appendChild(rhRank);
+    const rhLvl = document.createElement('th'); rhLvl.textContent = 'Level'; rh.appendChild(rhLvl);
+    list.appendChild(rh);
+
+    topN.slice(1).forEach((entry, idx) => {
+      const r = document.createElement('tr');
+      const cPos = document.createElement('td'); cPos.textContent = (idx + 2).toString(); r.appendChild(cPos);
+      const cName = document.createElement('td'); cName.textContent = entry.player; cName.style.fontWeight = '500'; cName.style.color = leaderColors[entry.player] || 'black'; r.appendChild(cName);
+      const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; r.appendChild(cRank);
+      const cLvl = document.createElement('td'); cLvl.textContent = entry.level; r.appendChild(cLvl);
+      list.appendChild(r);
+    });
+
+    inner.appendChild(list);
+    detailCell.appendChild(inner);
+    detailRow.appendChild(detailCell);
+
+    row.addEventListener('click', () => {
+      detailRow.style.display = (detailRow.style.display === 'none') ? '' : 'none';
+    });
+
     table.appendChild(row);
+    table.appendChild(detailRow);
   });
 
   const box = document.createElement('div');
@@ -553,7 +678,7 @@ function renderDailyNews(playersData) {
     card.classList.add('player-changes');
 
     const h3 = document.createElement('h3');
-    h3.textContent = player.name;
+    h3.appendChild(createPlayerNameNode(player.name));
     card.appendChild(h3);
 
     const ul = document.createElement('ul');
@@ -614,7 +739,26 @@ function renderDailyNews(playersData) {
   });
 
   box.appendChild(grid);
+  makeCollapsible(box, 'Daily News');
   container.appendChild(box);
+}
+
+// Compute a Top-N leaderboard for a given minigame/boss item from playersData
+function computeTopNForItem(itemName, playersData, N = 5) {
+  const rows = [];
+  playersData.forEach(p => {
+    const entry = p.latestMinigames?.[itemName];
+    const score = entry?.score ?? 0;
+    if (score > 0) {
+      rows.push({
+        player: p.name,
+        score,
+        rank: (typeof entry?.rank === 'number') ? entry.rank : null
+      });
+    }
+  });
+  rows.sort((a, b) => b.score - a.score || (a.rank ?? Infinity) - (b.rank ?? Infinity));
+  return rows.slice(0, N);
 }
 
 // -------- Item Leaders (Boss/Raid/Clue/Others/Minigames) --------
@@ -646,17 +790,16 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
   tbl.appendChild(hdr);
 
   items.forEach(item => {
-    let topCount = -1, topPlayer = null;
-    playersData.forEach(p => {
-      const count = p.latestMinigames[item]?.score ?? 0;
-      if (count > topCount) {
-        topCount = count;
-        topPlayer = p.name;
-      }
-    });
-    if (topCount <= 0) return;
+    const topN = computeTopNForItem(item, playersData, 5);
+    if (topN.length === 0) return;
 
+    const leader = topN[0];
+
+    // Visible leader row
     const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    row.title = 'Click to see runner-ups';
+
     const cellItem = document.createElement('td');
     const img = document.createElement('img');
     const rawPath = `./images/${item} icon.png`;
@@ -670,31 +813,64 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
     row.appendChild(cellItem);
 
     const cellLeader = document.createElement('td');
-    cellLeader.textContent = topPlayer || '–';
+    cellLeader.textContent = leader.player || '–';
     cellLeader.style.fontWeight = 'bold';
-    cellLeader.style.color = leaderColors[topPlayer] || 'black';
+    cellLeader.style.color = leaderColors[leader.player] || 'black';
     row.appendChild(cellLeader);
 
-    // NEW: Rank cell (optional, hidden unless toggled)
     const cellRank = document.createElement('td');
     cellRank.classList.add('col-rank');
     cellRank.setAttribute('data-col', 'rank');
-    let rankVal = '—';
-    if (topPlayer) {
-      const playerObj = playersData.find(p => p.name === topPlayer);
-      const mgEntry = playerObj?.latestMinigames?.[item];
-      if (mgEntry && typeof mgEntry.rank === 'number') {
-        rankVal = `#${mgEntry.rank.toLocaleString()}`;
-      }
-    }
-    cellRank.textContent = rankVal;
+    cellRank.textContent = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : '—';
     row.appendChild(cellRank);
 
     const cellCount = document.createElement('td');
-    cellCount.textContent = topCount.toLocaleString();
+    cellCount.textContent = leader.score.toLocaleString();
     row.appendChild(cellCount);
 
+    // Hidden runner-ups row (positions 2..5)
+    const detailRow = document.createElement('tr');
+    const detailCell = document.createElement('td');
+    detailCell.colSpan = 4;
+    detailRow.style.display = 'none';
+
+    const inner = document.createElement('div');
+    inner.style.padding = '8px 12px';
+    inner.style.background = 'rgba(0,0,0,0.03)';
+    inner.style.borderLeft = '3px solid #ddd';
+
+    const list = document.createElement('table');
+    list.style.width = '100%';
+    list.style.fontSize = '0.95em';
+
+    // Header for runner-ups table
+    const rh = document.createElement('tr');
+    const rhPos = document.createElement('th'); rhPos.textContent = '#'; rh.appendChild(rhPos);
+    const rhName = document.createElement('th'); rhName.textContent = 'Player'; rh.appendChild(rhName);
+    const rhRank = document.createElement('th'); rhRank.textContent = 'Rank'; rhRank.classList.add('col-rank'); rhRank.setAttribute('data-col','rank'); rh.appendChild(rhRank);
+    const rhScore = document.createElement('th'); rhScore.textContent = 'Score'; rh.appendChild(rhScore);
+    list.appendChild(rh);
+
+    topN.slice(1).forEach((entry, idx) => {
+      const r = document.createElement('tr');
+      const cPos = document.createElement('td'); cPos.textContent = (idx + 2).toString(); r.appendChild(cPos);
+      const cName = document.createElement('td'); cName.textContent = entry.player; cName.style.fontWeight = '500'; cName.style.color = leaderColors[entry.player] || 'black'; r.appendChild(cName);
+      const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; r.appendChild(cRank);
+      const cScore = document.createElement('td'); cScore.textContent = entry.score.toLocaleString(); r.appendChild(cScore);
+      list.appendChild(r);
+    });
+
+    inner.appendChild(list);
+    detailCell.appendChild(inner);
+    detailRow.appendChild(detailCell);
+
+    // Toggle behavior
+    row.addEventListener('click', () => {
+      detailRow.style.display = (detailRow.style.display === 'none') ? '' : 'none';
+    });
+
     tbl.appendChild(row);
+    tbl.appendChild(detailRow);
   });
 
   const box = document.createElement('div');
@@ -711,6 +887,7 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
 async function main() {
   // Apply saved preference for showing ranks
   applyRankPref();
+  injectCollapsibleStyles();
   let PLAYERS;
   try {
     PLAYERS = await loadPlayers();
@@ -723,6 +900,7 @@ async function main() {
   }
 
   assignColors(PLAYERS);
+  await loadPlayerIconsFromJson();
 
   // Load each player's JSON in parallel, compute changes and latest snapshot info
   const results = await Promise.allSettled(
@@ -768,7 +946,6 @@ async function main() {
 
   // Render sections
   renderDailyNews(playersData);
-  await displayHighestLevels(PLAYERS);
 
   // Leaders by item groups (no XP categories like Gathering/Production)
   displayItemLeaders('Boss Leaders', CUSTOM_CATEGORIES.Bosses.minigames, playersData);
@@ -776,6 +953,9 @@ async function main() {
   displayItemLeaders('Clue Leaders', CUSTOM_CATEGORIES.Clues.minigames, playersData);
   displayItemLeaders('Other Leaders', CUSTOM_CATEGORIES.Others.minigames, playersData);
   displayItemLeaders('Minigame Leaders', CUSTOM_CATEGORIES.Minigames.minigames, playersData);
+
+  // Move Skill Leaders last
+  await displayHighestLevels(PLAYERS);
 }
 
 main();
