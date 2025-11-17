@@ -555,9 +555,9 @@ async function displayHighestLevels(players) {
     row.appendChild(skillCell);
 
     const playerCell = document.createElement('td');
-    playerCell.textContent = leader.player;
     playerCell.style.color = leaderColors[leader.player] || 'black';
     playerCell.style.fontWeight = 'bold';
+    playerCell.appendChild(createPlayerNameNode(leader.player));
     row.appendChild(playerCell);
 
     const rankCell = document.createElement('td');
@@ -596,7 +596,11 @@ async function displayHighestLevels(players) {
     topN.slice(1).forEach((entry, idx) => {
       const r = document.createElement('tr');
       const cPos = document.createElement('td'); cPos.textContent = (idx + 2).toString(); r.appendChild(cPos);
-      const cName = document.createElement('td'); cName.textContent = entry.player; cName.style.fontWeight = '500'; cName.style.color = leaderColors[entry.player] || 'black'; r.appendChild(cName);
+      const cName = document.createElement('td'); 
+      cName.style.fontWeight = '500'; 
+      cName.style.color = leaderColors[entry.player] || 'black'; 
+      cName.appendChild(createPlayerNameNode(entry.player)); 
+      r.appendChild(cName);
       const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; r.appendChild(cRank);
       const cLvl = document.createElement('td'); cLvl.textContent = entry.level; r.appendChild(cLvl);
       list.appendChild(r);
@@ -813,9 +817,9 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
     row.appendChild(cellItem);
 
     const cellLeader = document.createElement('td');
-    cellLeader.textContent = leader.player || '–';
     cellLeader.style.fontWeight = 'bold';
     cellLeader.style.color = leaderColors[leader.player] || 'black';
+    cellLeader.appendChild(createPlayerNameNode(leader.player || '–'));
     row.appendChild(cellLeader);
 
     const cellRank = document.createElement('td');
@@ -854,7 +858,11 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
     topN.slice(1).forEach((entry, idx) => {
       const r = document.createElement('tr');
       const cPos = document.createElement('td'); cPos.textContent = (idx + 2).toString(); r.appendChild(cPos);
-      const cName = document.createElement('td'); cName.textContent = entry.player; cName.style.fontWeight = '500'; cName.style.color = leaderColors[entry.player] || 'black'; r.appendChild(cName);
+      const cName = document.createElement('td'); 
+      cName.style.fontWeight = '500'; 
+      cName.style.color = leaderColors[entry.player] || 'black'; 
+      cName.appendChild(createPlayerNameNode(entry.player)); 
+      r.appendChild(cName);
       const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; r.appendChild(cRank);
       const cScore = document.createElement('td'); cScore.textContent = entry.score.toLocaleString(); r.appendChild(cScore);
       list.appendChild(r);
