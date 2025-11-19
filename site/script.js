@@ -505,7 +505,8 @@ async function displayHighestLevels(players) {
     'Farming': './images/Farming icon.png',
     'Runecraft': './images/Runecraft icon.png',
     'Hunter': './images/Hunter icon.png',
-    'Construction': './images/Construction icon.png'
+    'Construction': './images/Construction icon.png',
+    'Sailing': './images/Sailing icon.png'
   };
 
   const table = document.createElement('table');
@@ -887,8 +888,173 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
   h2.textContent = title;
   box.appendChild(h2);
   box.appendChild(tbl);
+  makeCollapsible(box, title);
 
   document.getElementById('results').appendChild(box);
+}
+
+// -------- Temporary Sailing Tracker (Top 10) --------
+function injectSailingStyles() {
+  if (document.getElementById('sailing-style')) return;
+  const style = document.createElement('style');
+  style.id = 'sailing-style';
+  style.textContent = `
+    .sailing-fab {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: #2b4b62; /* slightly darker */
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .sailing-fab img { width: 28px; height: 28px; }
+
+    .sailing-overlay {
+      position: fixed; inset: 0; 
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(2px);
+      display: none;
+      z-index: 9998;
+    }
+
+    .sailing-panel {
+      position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
+      width: min(720px, 92vw);
+      background: rgba(22, 20, 19, 0.95); /* dark, translucent */
+      color: #eee;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      box-shadow: 0 14px 32px rgba(0,0,0,0.45);
+      padding: 16px 18px 12px;
+      z-index: 9999;
+    }
+    .sailing-panel h2 { 
+      display: flex; align-items: center; gap: 8px; 
+      margin: 0 0 12px 0; text-align: left;
+    }
+    .sailing-panel h2 img { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+
+    .sailing-close {
+      position: absolute; right: 10px; top: 8px;
+      background: transparent; border: none; font-size: 24px; cursor: pointer;
+      color: #fff;
+      line-height: 1;
+    }
+    .sailing-close:hover { opacity: 0.8; }
+
+    .sailing-table { width: 100%; border-collapse: collapse; }
+    .sailing-table th, .sailing-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sailing-table th { text-align: left; background: #6b5146; color: #fff; border-bottom-color: transparent; }
+    .sailing-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    .sailing-table .col-rank { opacity: 0.9; }
+
+    @media (prefers-color-scheme: light) {
+      .sailing-panel { background: #2a2623; color: #f4f3f2; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+async function displaySailingTop(players, N = 10) {
+  // Reuse existing helper to compute top-N for all skills, then pick Sailing
+  const topMap = await getTopNSkillLeaders(players, N);
+  const sailing = topMap['Sailing'] || [];
+
+  // Build overlay + panel once
+  let overlay = document.getElementById('sailing-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'sailing-overlay';
+    overlay.className = 'sailing-overlay';
+    overlay.addEventListener('click', () => toggleSailingOverlay(false));
+    document.body.appendChild(overlay);
+  }
+
+  let panel = document.getElementById('sailing-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'sailing-panel';
+    panel.className = 'sailing-panel';
+    document.body.appendChild(panel);
+  }
+
+  panel.innerHTML = '';
+
+  const close = document.createElement('button');
+  close.className = 'sailing-close';
+  close.setAttribute('aria-label', 'Close');
+  // Use Unicode escape to avoid encoding issues that show as 
+  close.textContent = '\u00D7';
+  close.addEventListener('click', () => toggleSailingOverlay(false));
+
+  const h2 = document.createElement('h2');
+  const icon = document.createElement('img');
+  icon.src = './images/Sailing icon.png';
+  icon.alt = 'Sailing Icon';
+  icon.style.width = '28px';
+  icon.style.height = '28px';
+  h2.appendChild(icon);
+  h2.appendChild(document.createTextNode(' Sailing Top Chads'));
+
+  const table = document.createElement('table');
+  table.className = 'sailing-table';
+  const hdr = document.createElement('tr');
+  const thPos = document.createElement('th'); thPos.textContent = '#'; hdr.appendChild(thPos);
+  const thName = document.createElement('th'); thName.textContent = 'Player'; hdr.appendChild(thName);
+  const thRank = document.createElement('th'); thRank.textContent = 'Rank'; thRank.classList.add('col-rank'); thRank.setAttribute('data-col','rank'); hdr.appendChild(thRank);
+  const thLvl = document.createElement('th'); thLvl.textContent = 'Level'; hdr.appendChild(thLvl);
+  table.appendChild(hdr);
+
+  sailing.forEach((entry, idx) => {
+    const tr = document.createElement('tr');
+    const cPos = document.createElement('td'); cPos.textContent = (idx + 1).toString(); tr.appendChild(cPos);
+    const cName = document.createElement('td'); cName.appendChild(createPlayerNameNode(entry.player)); cName.style.color = leaderColors[entry.player] || 'black'; cName.style.fontWeight = idx === 0 ? 'bold' : '500'; tr.appendChild(cName);
+    const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; tr.appendChild(cRank);
+    const cLvl = document.createElement('td'); cLvl.textContent = entry.level; tr.appendChild(cLvl);
+    table.appendChild(tr);
+  });
+
+  panel.appendChild(close);
+  panel.appendChild(h2);
+  panel.appendChild(table);
+}
+
+function toggleSailingOverlay(show) {
+  const overlay = document.getElementById('sailing-overlay');
+  const panel = document.getElementById('sailing-panel');
+  if (!overlay || !panel) return;
+  overlay.style.display = show ? 'block' : 'none';
+  panel.style.display = show ? 'block' : 'none';
+}
+
+function addSailingFab(players) {
+  if (document.getElementById('sailing-fab')) return;
+  const btn = document.createElement('button');
+  btn.id = 'sailing-fab';
+  btn.className = 'sailing-fab';
+  const img = document.createElement('img');
+  img.src = './images/Sailing icon.png';
+  img.alt = 'Sailing';
+  btn.appendChild(img);
+  btn.title = 'Show Sailing Top 10';
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const panel = document.getElementById('sailing-panel');
+    // If panel exists and is currently visible, close it on button click
+    if (panel && window.getComputedStyle(panel).display !== 'none') {
+      toggleSailingOverlay(false);
+      return;
+    }
+    // Otherwise (panel missing or hidden), build/update and open
+    await displaySailingTop(players, 10);
+    toggleSailingOverlay(true);
+  });
+  document.body.appendChild(btn);
 }
 
 // ------------------ Main ------------------
@@ -896,6 +1062,7 @@ async function main() {
   // Apply saved preference for showing ranks
   applyRankPref();
   injectCollapsibleStyles();
+  injectSailingStyles();
   let PLAYERS;
   try {
     PLAYERS = await loadPlayers();
@@ -964,6 +1131,7 @@ async function main() {
 
   // Move Skill Leaders last
   await displayHighestLevels(PLAYERS);
+  addSailingFab(PLAYERS);
 }
 
 main();
