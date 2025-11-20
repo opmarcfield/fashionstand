@@ -455,7 +455,13 @@ async function getTopNSkillLeaders(players, N = 5) {
   }
 
   const latestSnapshots = ok.map(p => p.snapshots[p.snapshots.length - 1]);
-  const skills = Object.keys(latestSnapshots[0].skills);
+  // Build a union of all skills across players to handle cases where the first player is missing a key (e.g., new skills like Sailing)
+  const skillSet = new Set();
+  latestSnapshots.forEach(snap => {
+    const sk = (snap && snap.skills) ? snap.skills : {};
+    Object.keys(sk).forEach(k => skillSet.add(k));
+  });
+  const skills = Array.from(skillSet);
 
   const topMap = {}; // skill -> [{ player, level, rank }... ]
 
@@ -633,14 +639,26 @@ async function displayHighestLevels(players) {
 // -------- Daily News (skill/minigame changes) --------
 function getSkillLevelChanges(snapshots) {
   if (snapshots.length < 2) return [];
-  const prev = snapshots[snapshots.length - 2];
-  const curr = snapshots[snapshots.length - 1];
+  const prev = snapshots[snapshots.length - 2] || {};
+  const curr = snapshots[snapshots.length - 1] || {};
+  const prevSkills = (prev && prev.skills) ? prev.skills : {};
+  const currSkills = (curr && curr.skills) ? curr.skills : {};
+
   const changes = [];
-  for (const skill in curr.skills) {
-    const prevEntry = prev.skills[skill];
-    const currEntry = curr.skills[skill];
-    const oldLevel = getDisplayedLevel(skill, prevEntry.level, prevEntry.experience);
-    const newLevel = getDisplayedLevel(skill, currEntry.level, currEntry.experience);
+  for (const skill in currSkills) {
+    const currEntry = currSkills[skill];
+    if (!currEntry) continue; // nothing to compare
+
+    // If previous snapshot didn't have this skill (e.g., new skill), treat previous as same as current
+    // so we don't fabricate "level-ups" from 0. This prevents crashes and noisy news.
+    const prevEntry = prevSkills[skill] || {
+      level: (typeof currEntry.level === 'number' ? currEntry.level : 0),
+      experience: (typeof currEntry.experience === 'number' ? currEntry.experience : 0)
+    };
+
+    const oldLevel = getDisplayedLevel(skill, prevEntry.level ?? 0, prevEntry.experience ?? 0);
+    const newLevel = getDisplayedLevel(skill, currEntry.level ?? 0, currEntry.experience ?? 0);
+
     if (newLevel > oldLevel) {
       changes.push({ skill, oldLevel, newLevel, diff: newLevel - oldLevel });
     }
