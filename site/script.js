@@ -1,4 +1,4 @@
-// --- Dynamic player loading (no hardcoded names) ---
+// --- Dynamic player loading (no hardcoded names) --- lol
 // Caches to avoid refetching
 const playerCache = new Map();   // name -> parsed JSON
 const missingCache = new Set();  // names known to not have a JSON file
