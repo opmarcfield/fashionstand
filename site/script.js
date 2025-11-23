@@ -351,7 +351,7 @@ const CUSTOM_CATEGORIES = {
       'Grotesque Guardians', 'Hespori', 'Kalphite Queen', 'King Black Dragon',
       'Kraken', "Kree'Arra", "K'ril Tsutsaroth", 'Lunar Chests', 'Mimic',
       'Nex', 'Nightmare', "Phosani's Nightmare", 'Obor', 'Phantom Muspah',
-      'Sarachnis', 'Scorpia', 'Scurrius', 'Skotizo', 'Sol Heredit',
+      'Sarachnis', 'Scorpia', 'Scurrius', 'Shellbane Gryphon', 'Skotizo', 'Sol Heredit',
       'Spindel', 'The Gauntlet', 'The Corrupted Gauntlet', 'The Hueycoatl',
       'The Leviathan', 'The Royal Titans', 'The Whisperer', 'Thermonuclear Smoke Devil',
       'TzKal-Zuk', 'TzTok-Jad', 'Vardorvis', "Venenatis", "Vet'ion",
@@ -570,7 +570,7 @@ async function displayHighestLevels(players) {
     const rankCell = document.createElement('td');
     rankCell.classList.add('col-rank');
     rankCell.setAttribute('data-col', 'rank');
-    const rnk = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : '—';
+    const rnk = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : 'Â—';
     rankCell.textContent = rnk;
     row.appendChild(rankCell);
 
@@ -608,7 +608,7 @@ async function displayHighestLevels(players) {
       cName.style.color = leaderColors[entry.player] || 'black'; 
       cName.appendChild(createPlayerNameNode(entry.player)); 
       r.appendChild(cName);
-      const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; r.appendChild(cRank);
+      const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : 'Â—'; r.appendChild(cRank);
       const cLvl = document.createElement('td'); cLvl.textContent = entry.level; r.appendChild(cLvl);
       list.appendChild(r);
     });
@@ -838,13 +838,13 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
     const cellLeader = document.createElement('td');
     cellLeader.style.fontWeight = 'bold';
     cellLeader.style.color = leaderColors[leader.player] || 'black';
-    cellLeader.appendChild(createPlayerNameNode(leader.player || '–'));
+    cellLeader.appendChild(createPlayerNameNode(leader.player || 'Â–'));
     row.appendChild(cellLeader);
 
     const cellRank = document.createElement('td');
     cellRank.classList.add('col-rank');
     cellRank.setAttribute('data-col', 'rank');
-    cellRank.textContent = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : '—';
+    cellRank.textContent = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : 'Â—';
     row.appendChild(cellRank);
 
     const cellCount = document.createElement('td');
@@ -882,7 +882,7 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
       cName.style.color = leaderColors[entry.player] || 'black'; 
       cName.appendChild(createPlayerNameNode(entry.player)); 
       r.appendChild(cName);
-      const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; r.appendChild(cRank);
+      const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : 'Â—'; r.appendChild(cRank);
       const cScore = document.createElement('td'); cScore.textContent = entry.score.toLocaleString(); r.appendChild(cScore);
       list.appendChild(r);
     });
@@ -1006,7 +1006,7 @@ async function displaySailingTop(players, N = 10) {
   const close = document.createElement('button');
   close.className = 'sailing-close';
   close.setAttribute('aria-label', 'Close');
-  // Use Unicode escape to avoid encoding issues that show as 
+  // Use Unicode escape to avoid encoding issues that show as Â
   close.textContent = '\u00D7';
   close.addEventListener('click', () => toggleSailingOverlay(false));
 
@@ -1032,7 +1032,7 @@ async function displaySailingTop(players, N = 10) {
     const tr = document.createElement('tr');
     const cPos = document.createElement('td'); cPos.textContent = (idx + 1).toString(); tr.appendChild(cPos);
     const cName = document.createElement('td'); cName.appendChild(createPlayerNameNode(entry.player)); cName.style.color = leaderColors[entry.player] || 'black'; cName.style.fontWeight = idx === 0 ? 'bold' : '500'; tr.appendChild(cName);
-    const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '—'; tr.appendChild(cRank);
+    const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : 'Â—'; tr.appendChild(cRank);
     const cLvl = document.createElement('td'); cLvl.textContent = entry.level; tr.appendChild(cLvl);
     table.appendChild(tr);
   });
