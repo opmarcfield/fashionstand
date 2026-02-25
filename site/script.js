@@ -344,7 +344,7 @@ const CUSTOM_CATEGORIES = {
     skills: [],
     minigames: [
       'Abyssal Sire', 'Alchemical Hydra', 'Amoxliatl', 'Araxxor', 'Artio',
-      'Barrows', 'Bryophyta', 'Callisto', 'Calvarion', 'Cerberus',
+      'Barrows', 'Brutus', 'Bryophyta', 'Callisto', 'Calvarion', 'Cerberus',
       'Chaos Elemental', 'Chaos Fanatic', 'Commander Zilyana', 'Corporeal Beast',
       'Crazy Archaeologist', 'Dagannoth Prime', 'Dagannoth Rex', 'Dagannoth Supreme',
       'Deranged Archaeologist', 'Doom of Mokhaiotl', 'Duke Sucellus', 'General Graardor', 'Giant Mole',
