@@ -91,6 +91,15 @@ function setShowRankPref(on) {
   getRankToggleTargets().forEach(el => el.classList.toggle('show-ranks', on));
 }
 
+function getShowBingoPref() {
+  return localStorage.getItem('showBingo') === '1';
+}
+
+function setShowBingoPref(on) {
+  localStorage.setItem('showBingo', on ? '1' : '0');
+  document.body.classList.toggle('show-bingo', on);
+}
+
 function applyRankPref() {
   const on = getShowRankPref();
   getRankToggleTargets().forEach(el => el.classList.toggle('show-ranks', on));
@@ -195,6 +204,63 @@ function timeUntil(toDate, fromDate = new Date()) {
   return `${days} day${days === 1 ? '' : 's'}`;
 }
 
+function renderBingoSection() {
+  const container = document.querySelector('.container') || document.body;
+  
+  // Check if section already exists
+  let bingoSection = document.querySelector('.bingo-section');
+  
+  if (!bingoSection) {
+    bingoSection = document.createElement('div');
+    bingoSection.className = 'bingo-section';
+    
+    // Placeholder content
+    const placeholder = document.createElement('div');
+    placeholder.className = 'bingo-placeholder';
+    
+    // "Coming Soon" text above image
+    const comingSoon = document.createElement('p');
+    comingSoon.textContent = 'Coming Soon';
+    comingSoon.style.textAlign = 'center';
+    comingSoon.style.fontSize = '1.1em';
+    comingSoon.style.opacity = '0.7';
+    comingSoon.style.marginBottom = '12px';
+    comingSoon.style.color = '#f5f5f5';
+    comingSoon.style.textTransform = 'uppercase';
+    comingSoon.style.letterSpacing = '2px';
+    
+    const img = document.createElement('img');
+    img.src = './images/bingo-meme.png';
+    img.alt = 'Bingo Section - Coming Soon';
+    img.style.maxWidth = '600px';
+    img.style.width = '100%';
+    
+    // Add error handling for missing image
+    img.onerror = function() {
+      this.style.display = 'none';
+      const fallback = document.createElement('div');
+      fallback.style.padding = '60px 20px';
+      fallback.style.textAlign = 'center';
+      fallback.style.fontSize = '2em';
+      fallback.style.opacity = '0.6';
+      fallback.textContent = '🎯 Bingo Section';
+      placeholder.insertBefore(fallback, this);
+    };
+    
+    placeholder.appendChild(comingSoon);
+    placeholder.appendChild(img);
+    bingoSection.appendChild(placeholder);
+    
+    // Insert after refresh pill
+    const refreshPill = document.querySelector('.refresh-pill');
+    if (refreshPill && refreshPill.parentNode) {
+      refreshPill.parentNode.insertBefore(bingoSection, refreshPill.nextSibling);
+    } else {
+      container.prepend(bingoSection);
+    }
+  }
+}
+
 function renderRefreshPill(lastIso) {
   const container = document.querySelector('.container') || document.body;
   
@@ -269,13 +335,35 @@ function renderRefreshPill(lastIso) {
   const startOn = getShowRankPref();
   toggleBtn.innerHTML = startOn ? '👁️ Hide Ranks' : '👁️ Show Ranks';
 
+  // Bingo toggle button
+  let bingoBtn = wrap.querySelector('#bingoToggle');
+  if (!bingoBtn) {
+    bingoBtn = document.createElement('button');
+    bingoBtn.type = 'button';
+    bingoBtn.id = 'bingoToggle';
+    bingoBtn.className = 'bingo-toggle';
+    bingoBtn.addEventListener('click', () => {
+      const nowOn = !getShowBingoPref();
+      setShowBingoPref(nowOn);
+      bingoBtn.innerHTML = nowOn ? '🎯 Hide Bingo' : '🎯 Show Bingo';
+    });
+  }
+  const bingoOn = getShowBingoPref();
+  bingoBtn.innerHTML = bingoOn ? '🎯 Hide Bingo' : '🎯 Show Bingo';
+
   // Rebuild structure if new
   if (isNew) {
     refreshInfo.appendChild(lastSpan);
     refreshInfo.appendChild(dot);
     refreshInfo.appendChild(nextSpan);
     wrap.appendChild(refreshInfo);
-    wrap.appendChild(toggleBtn);
+    
+    // Create button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'refresh-buttons';
+    buttonContainer.appendChild(toggleBtn);
+    buttonContainer.appendChild(bingoBtn);
+    wrap.appendChild(buttonContainer);
     
     // Insert just below the intro/banner (if present), else at top
     const intro = document.querySelector('.intro-box');
@@ -1072,6 +1160,13 @@ async function main() {
     .sort()
     .pop();
   renderRefreshPill(lastIso);
+  
+  // Render bingo section
+  renderBingoSection();
+  
+  // Apply initial bingo state
+  const bingoOn = getShowBingoPref();
+  document.body.classList.toggle('show-bingo', bingoOn);
 
   // Render sections
   renderDailyNews(playersData);
