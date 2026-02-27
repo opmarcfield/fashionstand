@@ -646,6 +646,133 @@ body.show-ranks #rankToggle:hover {
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
+/* ===== Bingo Toggle Button ===== */
+#bingoToggle {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8em;
+  /* Teal/cyan gradient theme */
+  background: linear-gradient(135deg, #26a69a 0%, #00897b 50%, #00796b 100%);
+  border: 1.5px solid rgba(38, 166, 154, 0.4);
+  border-radius: 10px;
+  padding: 7px 14px 7px 12px;
+  margin-top: 8px;
+  
+  box-shadow:
+    0 4px 16px rgba(38, 166, 154, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+
+  transition: all 0.2s ease;
+  position: relative;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  width: 100%;
+}
+
+#bingoToggle:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #4db6ac 0%, #26a69a 50%, #00897b 100%);
+  box-shadow:
+    0 6px 24px rgba(38, 166, 154, 0.6),
+    0 3px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  border-color: rgba(38, 166, 154, 0.6);
+}
+
+#bingoToggle:active {
+  transform: translateY(0px);
+  box-shadow:
+    0 2px 8px rgba(38, 166, 154, 0.3),
+    0 1px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Active state - darker teal */
+body.show-bingo #bingoToggle {
+  background: linear-gradient(135deg, #00695c 0%, #004d40 50%, #00332a 100%);
+  border-color: rgba(0, 105, 92, 0.4);
+  box-shadow:
+    0 4px 16px rgba(0, 105, 92, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+body.show-bingo #bingoToggle:hover {
+  background: linear-gradient(135deg, #00897b 0%, #00695c 50%, #004d40 100%);
+  box-shadow:
+    0 6px 24px rgba(0, 105, 92, 0.6),
+    0 3px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Container for both buttons */
+.refresh-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 140px;
+}
+
+/* ===== Bingo Section ===== */
+.bingo-section {
+  display: none;
+  opacity: 0;
+  background: linear-gradient(135deg, rgba(141, 110, 99, 0.95) 0%, rgba(109, 76, 65, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(38, 166, 154, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px auto;
+  max-width: 92vw;
+  box-shadow: 
+    0 6px 24px rgba(0, 0, 0, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+body.show-bingo .bingo-section {
+  display: block;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.bingo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.bingo-placeholder img {
+  max-width: 600px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bingo-placeholder p {
+  text-align: center;
+  font-size: 1.1em;
+  opacity: 0.7;
+  color: #f5f5f5;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 500;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .refresh-pill {
@@ -659,9 +786,27 @@ body.show-ranks #rankToggle:hover {
     justify-content: space-around;
   }
   
-  #rankToggle {
+  .refresh-buttons {
+    width: 100%;
+  }
+  
+  #rankToggle,
+  #bingoToggle {
     width: 100%;
     justify-content: center;
+  }
+  
+  .bingo-section {
+    padding: 16px;
+    margin: 16px auto;
+  }
+  
+  .bingo-placeholder {
+    padding: 20px 10px;
+  }
+  
+  .bingo-placeholder p {
+    font-size: 1em;
   }
 }
 
