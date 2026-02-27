@@ -1,7 +1,12 @@
+// Import configuration
+import { CONFIG } from './config.js';
+
 // --- Dynamic player loading (no hardcoded names) --- lol
 // Caches to avoid refetching
 const playerCache = new Map();   // name -> parsed JSON
 const missingCache = new Set();  // names known to not have a JSON file
+const memoCache = new Map();     // Memoization cache for expensive calculations
+let lastCacheTime = 0;           // Timestamp for cache invalidation
 async function loadPlayers() {
   // expects ./data/players.json -> ["name1", "name2", ...]
   const res = await fetch('./data/players.json');
@@ -17,25 +22,14 @@ async function loadPlayers() {
 
 // Dynamic colors for leaders (assigned after players load)
 const leaderColors = {};
-const COLOR_PALETTE = [
-  'purple', 'black', 'white', 'blue', 'green', 'crimson', 'goldenrod',
-  'teal', 'orangered', 'slateblue', 'darkmagenta', 'darkslategray'
-];
 function assignColors(players) {
   players.forEach((p, i) => {
-    leaderColors[p] = COLOR_PALETTE[i % COLOR_PALETTE.length];
+    leaderColors[p] = CONFIG.COLOR_PALETTE[i % CONFIG.COLOR_PALETTE.length];
   });
 }
 // --- Optional per-player small icons next to names (externalizable) ---
-// Defaults live here to keep working even if external JSON is missing.
-const DEFAULT_PLAYER_ICONS = {
-  // map lowercased player names to icon image paths
-  'vaopa': './images/gim.png',
-  'scuttlebrut': './images/gim.png',
-  'jackiechunn': './images/ironman.png'
-};
 // This object will be populated at runtime by merging defaults with an optional JSON file.
-let PLAYER_ICONS = { ...DEFAULT_PLAYER_ICONS };
+let PLAYER_ICONS = { ...CONFIG.DEFAULT_PLAYER_ICONS };
 
 // Optionally load overrides from ./data/player_icons.json
 // Expected shape: { "vaopa": "./images/gim.png", "alice": "./images/iconX.png" }
@@ -49,7 +43,7 @@ async function loadPlayerIconsFromJson(url = './data/player_icons.json') {
       Object.keys(obj).forEach(k => {
         normalized[String(k).toLowerCase()] = obj[k];
       });
-      PLAYER_ICONS = { ...DEFAULT_PLAYER_ICONS, ...normalized };
+      PLAYER_ICONS = { ...CONFIG.DEFAULT_PLAYER_ICONS, ...normalized };
     }
   } catch (e) {
     console.warn('PLAYER_ICONS: using defaults; failed to load external mapping:', e);
@@ -79,11 +73,8 @@ function createPlayerNameNode(name) {
 }
 
 // Pretty display names for certain minigame keys
-const DISPLAY_NAME = {
-  "PVPARENA": "PvP Arena - Rank"
-};
 function prettyName(name) {
-  return DISPLAY_NAME[name] || name;
+  return CONFIG.DISPLAY_NAMES[name] || name;
 }
 
 // --- Show/Hide Rank preference ---
@@ -206,9 +197,16 @@ function timeUntil(toDate, fromDate = new Date()) {
 
 function renderRefreshPill(lastIso) {
   const container = document.querySelector('.container') || document.body;
-
-  const wrap = document.createElement('div');
-  wrap.className = 'refresh-pill';
+  
+  // Try to find existing pill
+  let wrap = document.querySelector('.refresh-pill');
+  let isNew = false;
+  
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'refresh-pill';
+    isNew = true;
+  }
 
   // last refresh (relative only)
   let lastStr = 'unknown';
@@ -221,62 +219,72 @@ function renderRefreshPill(lastIso) {
   const next = nextHelsinkiSix();
   const untilStr = timeUntil(next);
 
-  // Build content using textContent to avoid encoding issues
-  const lastSpan = document.createElement('span');
-  lastSpan.className = 'refresh-piece';
-
-  const emoji = document.createElement('span');
-  emoji.className = 'refresh-emoji';
-  emoji.textContent = '\u23F0'; // Alarm clock
-
-  const lastLabel = document.createElement('strong');
-  lastLabel.textContent = 'Last:';
-
-  lastSpan.appendChild(emoji);
-  lastSpan.appendChild(document.createTextNode(' '));
-  lastSpan.appendChild(lastLabel);
-  lastSpan.appendChild(document.createTextNode(' ' + lastStr));
-
-  const dot = document.createElement('span');
-  dot.className = 'dot';
-  dot.setAttribute('aria-hidden', 'true');
-  dot.textContent = '\u2022'; // bullet separator
-
-  const nextSpan = document.createElement('span');
-  nextSpan.className = 'refresh-piece';
-  const nextLabel = document.createElement('strong');
-  nextLabel.textContent = 'Next:';
-  nextSpan.appendChild(nextLabel);
-  nextSpan.appendChild(document.createTextNode(' in ' + untilStr));
-
-  // Clear and append
-  wrap.innerHTML = '';
-  wrap.appendChild(lastSpan);
-  wrap.appendChild(dot);
-  wrap.appendChild(nextSpan);
-
-  // Rank toggle button
-  const toggleBtn = document.createElement('button');
-  toggleBtn.type = 'button';
-  toggleBtn.id = 'rankToggle'; 
-  toggleBtn.className = 'rank-toggle';
-  const startOn = getShowRankPref();
-  toggleBtn.textContent = startOn ? 'Hide ranks' : 'Show ranks';
-  toggleBtn.addEventListener('click', () => {
-    const nowOn = !getShowRankPref();
-    setShowRankPref(nowOn);
-    toggleBtn.textContent = nowOn ? 'Hide ranks' : 'Show ranks';
-  });
-  wrap.appendChild(toggleBtn);
-
-  // Insert just below the intro/banner (if present), else at top
-  const intro = document.querySelector('.intro-box');
-  if (intro && intro.parentNode) {
-    intro.parentNode.insertBefore(wrap, intro.nextSibling);
-  } else {
-    container.prepend(wrap);
+  // Create or update refresh info container
+  let refreshInfo = wrap.querySelector('.refresh-info');
+  if (!refreshInfo) {
+    refreshInfo = document.createElement('div');
+    refreshInfo.className = 'refresh-info';
   }
 
+  // Update or create Last refresh section
+  let lastSpan = refreshInfo.querySelector('.refresh-piece:first-of-type');
+  if (!lastSpan) {
+    lastSpan = document.createElement('div');
+    lastSpan.className = 'refresh-piece';
+    lastSpan.innerHTML = '<span class="refresh-emoji">\u23F0</span><strong>Last Update</strong><span class="time-value"></span>';
+  }
+  const lastValue = lastSpan.querySelector('.time-value');
+  if (lastValue) lastValue.textContent = lastStr;
+
+  let dot = refreshInfo.querySelector('.dot');
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.setAttribute('aria-hidden', 'true');
+  }
+
+  // Update or create Next refresh section
+  let nextSpan = refreshInfo.querySelector('.refresh-piece:last-of-type');
+  if (!nextSpan) {
+    nextSpan = document.createElement('div');
+    nextSpan.className = 'refresh-piece';
+    nextSpan.innerHTML = '<span class="refresh-emoji">\u23F3</span><strong>Next Update</strong><span class="time-value"></span>';
+  }
+  const nextValue = nextSpan.querySelector('.time-value');
+  if (nextValue) nextValue.textContent = 'in ' + untilStr;
+
+  // Rank toggle button
+  let toggleBtn = wrap.querySelector('#rankToggle');
+  if (!toggleBtn) {
+    toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.id = 'rankToggle'; 
+    toggleBtn.className = 'rank-toggle';
+    toggleBtn.addEventListener('click', () => {
+      const nowOn = !getShowRankPref();
+      setShowRankPref(nowOn);
+      toggleBtn.innerHTML = nowOn ? '👁️ Hide Ranks' : '👁️ Show Ranks';
+    });
+  }
+  const startOn = getShowRankPref();
+  toggleBtn.innerHTML = startOn ? '👁️ Hide Ranks' : '👁️ Show Ranks';
+
+  // Rebuild structure if new
+  if (isNew) {
+    refreshInfo.appendChild(lastSpan);
+    refreshInfo.appendChild(dot);
+    refreshInfo.appendChild(nextSpan);
+    wrap.appendChild(refreshInfo);
+    wrap.appendChild(toggleBtn);
+    
+    // Insert just below the intro/banner (if present), else at top
+    const intro = document.querySelector('.intro-box');
+    if (intro && intro.parentNode) {
+      intro.parentNode.insertBefore(wrap, intro.nextSibling);
+    } else {
+      container.prepend(wrap);
+    }
+  }
 }
 
 // --- Collapsible sections (minimal change) ---
@@ -338,53 +346,8 @@ function getDisplayedLevel(skillName, storedLevel, storedXp) {
   return xpToVirtualLevel(storedXp);
 }
 
-// --- Category definitions kept for tables that use MINIGAMES only ---
-const CUSTOM_CATEGORIES = {
-  Bosses: {
-    skills: [],
-    minigames: [
-      'Abyssal Sire', 'Alchemical Hydra', 'Amoxliatl', 'Araxxor', 'Artio',
-      'Barrows', 'Brutus', 'Bryophyta', 'Callisto', 'Calvarion', 'Cerberus',
-      'Chaos Elemental', 'Chaos Fanatic', 'Commander Zilyana', 'Corporeal Beast',
-      'Crazy Archaeologist', 'Dagannoth Prime', 'Dagannoth Rex', 'Dagannoth Supreme',
-      'Deranged Archaeologist', 'Doom of Mokhaiotl', 'Duke Sucellus', 'General Graardor', 'Giant Mole',
-      'Grotesque Guardians', 'Hespori', 'Kalphite Queen', 'King Black Dragon',
-      'Kraken', "Kree'Arra", "K'ril Tsutsaroth", 'Lunar Chests', 'Mimic',
-      'Nex', 'Nightmare', "Phosani's Nightmare", 'Obor', 'Phantom Muspah',
-      'Sarachnis', 'Scorpia', 'Scurrius', 'Shellbane Gryphon', 'Skotizo', 'Sol Heredit',
-      'Spindel', 'The Gauntlet', 'The Corrupted Gauntlet', 'The Hueycoatl',
-      'The Leviathan', 'The Royal Titans', 'The Whisperer', 'Thermonuclear Smoke Devil',
-      'TzKal-Zuk', 'TzTok-Jad', 'Vardorvis', "Venenatis", "Vet'ion",
-      'Vorkath', 'Yama', 'Zulrah'
-    ]
-  },
-  Raids: {
-    skills: [],
-    minigames: [
-      'Tombs of Amascut', 'Tombs of Amascut - Expert Mode',
-      'Chambers of Xeric', 'Chambers of Xeric - Challenge Mode',
-      'Theatre of Blood', 'Theatre of Blood - Hard Mode'
-    ]
-  },
-  Clues: {
-    skills: [],
-    minigames: [
-      'Clue Scrolls (all)', 'Clue Scrolls (beginner)', 'Clue Scrolls (easy)',
-      'Clue Scrolls (medium)', 'Clue Scrolls (hard)', 'Clue Scrolls (elite)',
-      'Clue Scrolls (master)'
-    ]
-  },
-  Others: {
-    skills: [],
-    minigames: [
-      'Collections Logged', 'Colosseum Glory', 'LMS - Rank', 'PVPARENA', 'Soul Wars Zeal'
-    ]
-  },
-  Minigames: {
-    skills: [],
-    minigames: ['Tempoross', 'Wintertodt', 'Rifts closed', 'Zalcano']
-  }
-};
+// Category definitions from config
+const CUSTOM_CATEGORIES = CONFIG.CUSTOM_CATEGORIES;
 
 // --- Data helpers ---
 function filenameCandidates(playerName) {
@@ -439,8 +402,166 @@ async function fetchPlayerData(playerName) {
 }
 
 
+// --- Reusable Leader Table Rendering ---
+function createLeaderTable(topNData, options = {}) {
+  const {
+    iconMap = {},
+    isSkillTable = false,
+    valueLabel = 'Score',
+    valueFormatter = (val) => val.toLocaleString()
+  } = options;
+
+  const table = document.createElement('table');
+  table.border = '1';
+  table.style.width = '100%';
+
+  const headerRow = document.createElement('tr');
+  const headers = ['Item', 'Leader', 'Rank', valueLabel];
+  headers.forEach((text, idx) => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    if (idx === 2) {
+      th.classList.add('col-rank');
+      th.setAttribute('data-col', 'rank');
+    }
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+
+  Object.entries(topNData).forEach(([itemName, topN]) => {
+    if (!Array.isArray(topN) || topN.length === 0) return;
+    const leader = topN[0];
+
+    const row = document.createElement('tr');
+    row.style.cursor = 'pointer';
+    row.title = 'Click to see runner-ups';
+    row.classList.add('leader-row');
+
+    const itemCell = document.createElement('td');
+    const img = document.createElement('img');
+    const iconPath = iconMap[itemName] || `./images/${itemName} icon.png`;
+    img.src = isSkillTable ? iconPath : encodeURI(iconPath);
+    img.alt = `${prettyName(itemName)} Icon`;
+    img.style.width = '24px';
+    img.style.height = '24px';
+    img.style.verticalAlign = 'middle';
+    img.style.marginRight = '8px';
+    img.classList.add('item-icon');
+    itemCell.appendChild(img);
+    itemCell.appendChild(document.createTextNode(isSkillTable ? itemName : prettyName(itemName)));
+    row.appendChild(itemCell);
+
+    const playerCell = document.createElement('td');
+    playerCell.style.color = leaderColors[leader.player] || 'black';
+    playerCell.style.fontWeight = 'bold';
+    playerCell.appendChild(createPlayerNameNode(leader.player));
+    row.appendChild(playerCell);
+
+    const rankCell = document.createElement('td');
+    rankCell.classList.add('col-rank');
+    rankCell.setAttribute('data-col', 'rank');
+    const rnk = (typeof leader.rank === 'number') ? `#${leader.rank.toLocaleString()}` : '';
+    rankCell.textContent = rnk;
+    row.appendChild(rankCell);
+
+    const valueCell = document.createElement('td');
+    valueCell.textContent = valueFormatter(isSkillTable ? leader.level : leader.score);
+    row.appendChild(valueCell);
+
+    const detailRow = createRunnerUpsRow(topN.slice(1), valueLabel, valueFormatter, isSkillTable);
+    
+    row.addEventListener('click', () => {
+      detailRow.style.display = (detailRow.style.display === 'none') ? '' : 'none';
+    });
+
+    table.appendChild(row);
+    table.appendChild(detailRow);
+  });
+
+  return table;
+}
+
+function createRunnerUpsRow(runnerUps, valueLabel, valueFormatter, isSkillTable) {
+  const detailRow = document.createElement('tr');
+  const detailCell = document.createElement('td');
+  detailCell.colSpan = 4;
+  detailRow.style.display = 'none';
+  detailRow.classList.add('runner-ups-row');
+
+  const inner = document.createElement('div');
+  inner.style.padding = '8px 12px';
+  inner.style.background = 'rgba(0,0,0,0.03)';
+  inner.style.borderLeft = '3px solid #ddd';
+
+  const list = document.createElement('table');
+  list.style.width = '100%';
+  list.style.fontSize = '0.95em';
+
+  const rh = document.createElement('tr');
+  ['#', 'Player', 'Rank', valueLabel].forEach((text, idx) => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    if (idx === 2) {
+      th.classList.add('col-rank');
+      th.setAttribute('data-col', 'rank');
+    }
+    rh.appendChild(th);
+  });
+  list.appendChild(rh);
+
+  runnerUps.forEach((entry, idx) => {
+    const r = document.createElement('tr');
+    const cPos = document.createElement('td');
+    cPos.textContent = (idx + 2).toString();
+    r.appendChild(cPos);
+
+    const cName = document.createElement('td');
+    cName.style.fontWeight = '500';
+    cName.style.color = leaderColors[entry.player] || 'black';
+    cName.appendChild(createPlayerNameNode(entry.player));
+    r.appendChild(cName);
+
+    const cRank = document.createElement('td');
+    cRank.classList.add('col-rank');
+    cRank.setAttribute('data-col', 'rank');
+    cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : '';
+    r.appendChild(cRank);
+
+    const cValue = document.createElement('td');
+    cValue.textContent = valueFormatter(isSkillTable ? entry.level : entry.score);
+    r.appendChild(cValue);
+
+    list.appendChild(r);
+  });
+
+  inner.appendChild(list);
+  detailCell.appendChild(inner);
+  detailRow.appendChild(detailCell);
+
+  return detailRow;
+}
+
+// --- Memoization helper ---
+function memoize(fn, keyFn, ttl = CONFIG.CACHE_DURATION_MS) {
+  return async function(...args) {
+    const key = keyFn(...args);
+    const now = Date.now();
+    
+    if (memoCache.has(key)) {
+      const { value, timestamp } = memoCache.get(key);
+      if (now - timestamp < ttl) {
+        return value;
+      }
+    }
+    
+    const value = await fn(...args);
+    memoCache.set(key, { value, timestamp: now });
+    return value;
+  };
+}
+
 // Build Top-N per skill (using virtual levels for non-Overall)
-async function getTopNSkillLeaders(players, N = 5) {
+async function getTopNSkillLeadersRaw(players, N = 5) {
   const results = await Promise.allSettled(players.map(fetchPlayerData));
   const ok = [];
   const okNames = [];
@@ -484,36 +605,16 @@ async function getTopNSkillLeaders(players, N = 5) {
   return topMap;
 }
 
-async function displayHighestLevels(players) {
-  const topNMap = await getTopNSkillLeaders(players, 5);
+// Memoized version
+const getTopNSkillLeaders = memoize(
+  getTopNSkillLeadersRaw,
+  (players, N) => `skills:${players.join(',')}:${N}`
+);
 
-  const skillIcons = {
-    'Overall': './images/Overall icon.png',
-    'Attack': './images/Attack icon.png',
-    'Defence': './images/Defence icon.png',
-    'Strength': './images/Strength icon.png',
-    'Hitpoints': './images/Hitpoints icon.png',
-    'Ranged': './images/Ranged icon.png',
-    'Prayer': './images/Prayer icon.png',
-    'Magic': './images/Magic icon.png',
-    'Cooking': './images/Cooking icon.png',
-    'Woodcutting': './images/Woodcutting icon.png',
-    'Fletching': './images/Fletching icon.png',
-    'Fishing': './images/Fishing icon.png',
-    'Firemaking': './images/Firemaking icon.png',
-    'Crafting': './images/Crafting icon.png',
-    'Smithing': './images/Smithing icon.png',
-    'Mining': './images/Mining icon.png',
-    'Herblore': './images/Herblore icon.png',
-    'Agility': './images/Agility icon.png',
-    'Thieving': './images/Thieving icon.png',
-    'Slayer': './images/Slayer icon.png',
-    'Farming': './images/Farming icon.png',
-    'Runecraft': './images/Runecraft icon.png',
-    'Hunter': './images/Hunter icon.png',
-    'Construction': './images/Construction icon.png',
-    'Sailing': './images/Sailing icon.png'
-  };
+async function displayHighestLevels(players) {
+  const topNMap = await getTopNSkillLeaders(players, CONFIG.TOP_N_LEADERS);
+
+  const skillIcons = CONFIG.SKILL_ICONS;
 
   const table = document.createElement('table');
   table.border = '1';
@@ -911,176 +1012,11 @@ function displayItemLeaders(title, items, playersData, iconMap = {}) {
   document.getElementById('results').appendChild(box);
 }
 
-// -------- Temporary Sailing Tracker (Top 10) --------
-function injectSailingStyles() {
-  if (document.getElementById('sailing-style')) return;
-  const style = document.createElement('style');
-  style.id = 'sailing-style';
-  style.textContent = `
-    .sailing-fab {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 52px; height: 52px;
-      border-radius: 50%;
-      border: none;
-      background: #2b4b62; /* slightly darker */
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999;
-    }
-    .sailing-fab img { width: 28px; height: 28px; }
-
-    .sailing-overlay {
-      position: fixed; inset: 0; 
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(2px);
-      display: none;
-      z-index: 9998;
-    }
-
-    .sailing-panel {
-      position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
-      width: min(720px, 92vw);
-      background: rgba(22, 20, 19, 0.95); /* dark, translucent */
-      color: #eee;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      box-shadow: 0 14px 32px rgba(0,0,0,0.45);
-      padding: 16px 18px 12px;
-      z-index: 9999;
-    }
-    .sailing-panel h2 { 
-      display: flex; align-items: center; gap: 8px; 
-      margin: 0 0 12px 0; text-align: left;
-    }
-    .sailing-panel h2 img { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
-
-    .sailing-close {
-      position: absolute; right: 10px; top: 8px;
-      background: transparent; border: none; font-size: 24px; cursor: pointer;
-      color: #fff;
-      line-height: 1;
-    }
-    .sailing-close:hover { opacity: 0.8; }
-
-    .sailing-table { width: 100%; border-collapse: collapse; }
-    .sailing-table th, .sailing-table td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .sailing-table th { text-align: left; background: #6b5146; color: #fff; border-bottom-color: transparent; }
-    .sailing-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
-    .sailing-table .col-rank { opacity: 0.9; }
-
-    @media (prefers-color-scheme: light) {
-      .sailing-panel { background: #2a2623; color: #f4f3f2; }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-async function displaySailingTop(players, N = 10) {
-  // Reuse existing helper to compute top-N for all skills, then pick Sailing
-  const topMap = await getTopNSkillLeaders(players, N);
-  const sailing = topMap['Sailing'] || [];
-
-  // Build overlay + panel once
-  let overlay = document.getElementById('sailing-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'sailing-overlay';
-    overlay.className = 'sailing-overlay';
-    overlay.addEventListener('click', () => toggleSailingOverlay(false));
-    document.body.appendChild(overlay);
-  }
-
-  let panel = document.getElementById('sailing-panel');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'sailing-panel';
-    panel.className = 'sailing-panel';
-    document.body.appendChild(panel);
-  }
-
-  panel.innerHTML = '';
-
-  const close = document.createElement('button');
-  close.className = 'sailing-close';
-  close.setAttribute('aria-label', 'Close');
-  // Use Unicode escape to avoid encoding issues that show as 
-  close.textContent = '\u00D7';
-  close.addEventListener('click', () => toggleSailingOverlay(false));
-
-  const h2 = document.createElement('h2');
-  const icon = document.createElement('img');
-  icon.src = './images/Sailing icon.png';
-  icon.alt = 'Sailing Icon';
-  icon.style.width = '28px';
-  icon.style.height = '28px';
-  h2.appendChild(icon);
-  h2.appendChild(document.createTextNode(' Sailing Top Chads'));
-
-  const table = document.createElement('table');
-  table.className = 'sailing-table';
-  const hdr = document.createElement('tr');
-  const thPos = document.createElement('th'); thPos.textContent = '#'; hdr.appendChild(thPos);
-  const thName = document.createElement('th'); thName.textContent = 'Player'; hdr.appendChild(thName);
-  const thRank = document.createElement('th'); thRank.textContent = 'Rank'; thRank.classList.add('col-rank'); thRank.setAttribute('data-col','rank'); hdr.appendChild(thRank);
-  const thLvl = document.createElement('th'); thLvl.textContent = 'Level'; hdr.appendChild(thLvl);
-  table.appendChild(hdr);
-
-  sailing.forEach((entry, idx) => {
-    const tr = document.createElement('tr');
-    const cPos = document.createElement('td'); cPos.textContent = (idx + 1).toString(); tr.appendChild(cPos);
-    const cName = document.createElement('td'); cName.appendChild(createPlayerNameNode(entry.player)); cName.style.color = leaderColors[entry.player] || 'black'; cName.style.fontWeight = idx === 0 ? 'bold' : '500'; tr.appendChild(cName);
-    const cRank = document.createElement('td'); cRank.classList.add('col-rank'); cRank.setAttribute('data-col','rank'); cRank.textContent = (typeof entry.rank === 'number') ? `#${entry.rank.toLocaleString()}` : ''; tr.appendChild(cRank);
-    const cLvl = document.createElement('td'); cLvl.textContent = entry.level; tr.appendChild(cLvl);
-    table.appendChild(tr);
-  });
-
-  panel.appendChild(close);
-  panel.appendChild(h2);
-  panel.appendChild(table);
-}
-
-function toggleSailingOverlay(show) {
-  const overlay = document.getElementById('sailing-overlay');
-  const panel = document.getElementById('sailing-panel');
-  if (!overlay || !panel) return;
-  overlay.style.display = show ? 'block' : 'none';
-  panel.style.display = show ? 'block' : 'none';
-}
-
-function addSailingFab(players) {
-  if (document.getElementById('sailing-fab')) return;
-  const btn = document.createElement('button');
-  btn.id = 'sailing-fab';
-  btn.className = 'sailing-fab';
-  const img = document.createElement('img');
-  img.src = './images/Sailing icon.png';
-  img.alt = 'Sailing';
-  btn.appendChild(img);
-  btn.title = 'Show Sailing Top 10';
-  btn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const panel = document.getElementById('sailing-panel');
-    // If panel exists and is currently visible, close it on button click
-    if (panel && window.getComputedStyle(panel).display !== 'none') {
-      toggleSailingOverlay(false);
-      return;
-    }
-    // Otherwise (panel missing or hidden), build/update and open
-    await displaySailingTop(players, 10);
-    toggleSailingOverlay(true);
-  });
-  document.body.appendChild(btn);
-}
-
 // ------------------ Main ------------------
 async function main() {
   // Apply saved preference for showing ranks
   applyRankPref();
   injectCollapsibleStyles();
-  injectSailingStyles();
   let PLAYERS;
   try {
     PLAYERS = await loadPlayers();
@@ -1149,7 +1085,7 @@ async function main() {
 
   // Move Skill Leaders last
   await displayHighestLevels(PLAYERS);
-  addSailingFab(PLAYERS);
 }
 
 main();
+
