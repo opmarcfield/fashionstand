@@ -1,24 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OSRS Category Rankings</title>
+  <meta name="description" content="Daily updated OSRS leaderboards tracking player skills, boss kills, raids, and achievements for the Fashionstand community.">
+  <meta name="keywords" content="OSRS, Old School RuneScape, leaderboards, rankings, skills, bosses, raids">
+  <title>OSRS Fashionstand Rankings - Daily Leaderboards</title>
+  
+  <!-- Open Graph / Social Media -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="OSRS Fashionstand Rankings">
+  <meta property="og:description" content="Daily updated OSRS leaderboards tracking player progress">
+  <meta property="og:image" content="banner.png">
+  <meta property="og:url" content="">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="OSRS Fashionstand Rankings">
+  <meta name="twitter:description" content="Daily updated OSRS leaderboards">
+  <meta name="twitter:image" content="banner.png">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="banner.png" as="image">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" as="style">
+  <link rel="preload" href="styles.css" as="style">
+  <link rel="preload" href="config.js" as="script">
+  <link rel="preload" href="script.js" as="script">
+  
+  <!-- Stylesheets -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Skip to main content for accessibility -->
+  <a href="#results" class="skip-to-content">Skip to main content</a>
 
   <div class="container">
     <div class="intro-box">
-      <img class="site-banner" src="banner.png" alt="Fashionstand banner" />
+      <img class="site-banner" src="banner.png" alt="Fashionstand OSRS leaderboard banner" />
     </div>
 
-    <!-- Box for headings ++ tables -->
-    <div class="results-box" id="results"></div>
+    <!-- Main content area -->
+    <main id="results" class="results-box" role="main" aria-label="Leaderboard results"></main>
   </div>
 
-  <script src="script.js"></script>
-<footer class="site-footer">&copy; 2025 <span class="sep">&bull;</span> by opa</footer>
+  <footer class="site-footer" role="contentinfo">
+    <p>&copy; 2025 <span class="sep" aria-hidden="true">&bull;</span> by opa</p>
+  </footer>
+  
+  <script type="module" src="script.js"></script>
 </body>
 </html>
