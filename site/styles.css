@@ -552,7 +552,7 @@ body.show-ranks table td[data-col="rank"] {
 }
 */
 
-/* ===== Rank toggle ù themed leather/wood pill button ===== */
+/* ===== Rank toggle  themed leather/wood pill button ===== */
 #rankToggle {
   appearance: none;
   cursor: pointer;
@@ -1158,4 +1158,120 @@ button:active::after {
   }
 }
 
+/* ===== Raidsward Enclave Custom Card ===== */
+.village-custom-raidsward .custom-village-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
+.village-custom-raidsward .village-bg-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.custom-tile-overlay {
+  position: absolute;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Visual feedback on hover (admin mode) */
+.custom-tile-overlay.admin-active:hover {
+  background: rgba(255, 215, 0, 0.2);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+}
+
+/* Count-based glow effects */
+.custom-tile-overlay[data-count="1"] .tile-glow {
+  box-shadow: inset 0 0 30px rgba(205, 127, 50, 0.6);
+}
+
+.custom-tile-overlay[data-count="2"] .tile-glow {
+  box-shadow: inset 0 0 30px rgba(192, 192, 192, 0.6);
+}
+
+.custom-tile-overlay[data-count="3"] .tile-glow {
+  box-shadow: inset 0 0 40px rgba(255, 215, 0, 0.8);
+  animation: goldPulse 2s ease-in-out infinite;
+}
+
+@keyframes goldPulse {
+  0%, 100% { box-shadow: inset 0 0 40px rgba(255, 215, 0, 0.8); }
+  50% { box-shadow: inset 0 0 60px rgba(255, 215, 0, 1); }
+}
+
+.tile-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    transition: box-shadow 0.3s ease;
+}
+
+/* Count badge (small number in corner) */
+.tile-count-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffd700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ===== DEBUGGING ===== */
+/* Add this class to the body tag in the dev console to see the overlay boundaries */
+.debug-overlays .custom-tile-overlay {
+    background-color: rgba(255, 0, 0, 0.25);
+    border: 1px dashed #ff0000;
+}
+
+/* ===== Oathbound Oblivion Custom Card ===== */
+.village-custom-oathbound .custom-village-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.village-custom-oathbound .village-bg-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ===== Skullspire Outpost Custom Card ===== */
+.village-custom-skullspire .custom-village-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.village-custom-skullspire .village-bg-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ===== Prospector's Rest Custom Card ===== */
+.village-custom-prospectors .custom-village-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.village-custom-prospectors .village-bg-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
