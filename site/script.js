@@ -72,11 +72,11 @@ let bingoState = {
 
 let currentTeam = 'teamA';
 let adminMode = false;
-const ADMIN_PASSWORD = 'bingo2026';
+const ADMIN_PASSWORD = 'comebackgael';
 
 // JSONBin.io configuration (you'll need to set these up)
-const JSONBIN_API_KEY = '$2a$10$YOUR_API_KEY_HERE'; // Replace with your API key
-const JSONBIN_BIN_ID = 'YOUR_BIN_ID_HERE'; // Replace with your bin ID
+const JSONBIN_API_KEY = '$2a$10$tRqlEgM6SQCbAwrhLnX1ZedFMyYwUsn.Jh3RyAHc0BtEHwkhQEYuS'; // Replace with your API key
+const JSONBIN_BIN_ID = '69a2e907d0ea881f40e1de15'; // Replace with your bin ID
 
 // --- Dynamic player loading (no hardcoded names) --- lol
 // Caches to avoid refetching
@@ -307,13 +307,13 @@ function renderBingoSection() {
   
   const teamABtn = document.createElement('button');
   teamABtn.className = 'team-btn' + (currentTeam === 'teamA' ? ' active' : '');
-  teamABtn.textContent = 'Team A';
+  teamABtn.textContent = 'Team Venator';
   teamABtn.dataset.team = 'teamA';
   teamABtn.addEventListener('click', () => switchTeam('teamA'));
   
   const teamBBtn = document.createElement('button');
   teamBBtn.className = 'team-btn' + (currentTeam === 'teamB' ? ' active' : '');
-  teamBBtn.textContent = 'Team B';
+  teamBBtn.textContent = 'Team Rupture';
   teamBBtn.dataset.team = 'teamB';
   teamBBtn.addEventListener('click', () => switchTeam('teamB'));
   
