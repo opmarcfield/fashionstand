@@ -1,82 +1,9 @@
 // Import configuration
 import { CONFIG } from './config.js';
 
-// ===== BINGO TRACKING SYSTEM =====
-const BINGO_DATA = {
-  villages: [
-    {
-      id: 1,
-      name: "Raidsward Enclave",
-      tiles: [
-        { id: "v1_t1", name: "Any mega rare", maxCount: 3 },
-        { id: "v1_t2", name: "Any dust", maxCount: 3 },
-        { id: "v1_t3", name: "Any TOB or COX kit", maxCount: 3 },
-        { id: "v1_t4", name: "Any Raids pet", maxCount: 3 },
-        { id: "v1_t5", name: "Non mega TOB purple", maxCount: 3 },
-        { id: "v1_t6", name: "Non mega COX purple", maxCount: 3 },
-        { id: "v1_t7", name: "2x Non mega TOA purple", maxCount: 3 }
-      ]
-    },
-    {
-      id: 2,
-      name: "Oathbound Oblivion",
-      tiles: [
-        { id: "v2_t1", name: "Full moons OR barrows set", maxCount: 3 },
-        { id: "v2_t2", name: "DK Lord of the Rings", maxCount: 3 },
-        { id: "v2_t3", name: "Crystal armor seed", maxCount: 3 },
-        { id: "v2_t6", name: "Delve Unique", maxCount: 3 },
-        { id: "v2_t7", name: "Yama unique", maxCount: 3 },
-        { id: "v2_t8", name: "Nightmare/Corp/Nex unique", maxCount: 3 },
-        { id: "v2_t9", name: "Full Godsword", maxCount: 3 },
-        { id: "v2_t10", name: "PVM/Minigame non-raid/wildy pet", maxCount: 3 },
-        { id: "v2_t11", name: "Zulrah OR Vorkath unique", maxCount: 3 },
-        { id: "v2_t12", name: "Twinflame staff OR dragon hunter wand", maxCount: 3 },
-        { id: "v2_t13", name: "Slayer jar", maxCount: 3 },
-        { id: "v2_t14", name: "Virtus", maxCount: 3 },
-        { id: "v2_t17", name: "Colosseum unique", maxCount: 3 }
-      ]
-    },
-    {
-      id: 3,
-      name: "Skullspire Outpost",
-      tiles: [
-        { id: "v3_t1", name: "Wildy pet", maxCount: 3 },
-        { id: "v3_t2", name: "Voidwaker", maxCount: 3 },
-        { id: "v3_t3", name: "Wildy Lord of the Ring", maxCount: 3 },
-        { id: "v3_t4", name: "Bow OR chainmace OR sceptre", maxCount: 3 },
-        { id: "v3_t5", name: "Amulet of Avarice OR ancient crystal", maxCount: 3 },
-        { id: "v3_t6", name: "Any complete ward", maxCount: 3 }
-      ]
-    },
-    {
-      id: 4,
-      name: "Prospector's Rest",
-      tiles: [
-        { id: "v4_t1", name: "Skilling pet", maxCount: 3 },
-        { id: "v4_t2", name: "Crystal tool seed", maxCount: 3 },
-        { id: "v4_t3", name: "Tome of fire OR water", maxCount: 3 },
-        { id: "v4_t4", name: "1/3k salvage drop", maxCount: 3 },
-        { id: "v4_t5", name: "Dragon canon barrel OR angler's paint", maxCount: 3 },
-        { id: "v4_t6", name: "Ring of endurance", maxCount: 3 },
-        { id: "v4_t7", name: "Holey moley from scratch", maxCount: 3 }
-      ]
-    }
-  ]
-};
-
-// Bingo state management
-let bingoState = {
-  teamA: {},
-  teamB: {}
-};
-
-let currentTeam = 'teamA';
-let adminMode = false;
-const ADMIN_PASSWORD = 'comebackgael';
-
-// JSONBin.io configuration (you'll need to set these up)
-const JSONBIN_API_KEY = '$2a$10$tRqlEgM6SQCbAwrhLnX1ZedFMyYwUsn.Jh3RyAHc0BtEHwkhQEYuS'; // Replace with your API key
-const JSONBIN_BIN_ID = '69a2e907d0ea881f40e1de15'; // Replace with your bin ID
+// ===== BINGO TRACKING SYSTEM (Removed) =====
+// The interactive bingo tracking system has been removed.
+// A new function will be added to show a homage to the bingo event.
 
 // --- Dynamic player loading (no hardcoded names) --- lol
 // Caches to avoid refetching
@@ -176,6 +103,8 @@ function setShowBingoPref(on) {
   localStorage.setItem('showBingo', on ? '1' : '0');
   document.body.classList.toggle('show-bingo', on);
 }
+
+
 
 function applyRankPref() {
   const on = getShowRankPref();
@@ -281,418 +210,7 @@ function timeUntil(toDate, fromDate = new Date()) {
   return `${days} day${days === 1 ? '' : 's'}`;
 }
 
-function renderBingoSection() {
-  const container = document.querySelector('.container') || document.body;
-  
-  // Check if section already exists
-  let bingoSection = document.querySelector('.bingo-section');
-  let isNew = false;
-  
-  if (!bingoSection) {
-    bingoSection = document.createElement('div');
-    bingoSection.className = 'bingo-section';
-    isNew = true;
-  } else {
-    // Clear existing content
-    bingoSection.innerHTML = '';
-  }
-  
-  // Create header with team toggle and admin button
-  const header = document.createElement('div');
-  header.className = 'bingo-header';
-  
-  // Team toggle
-  const teamToggle = document.createElement('div');
-  teamToggle.className = 'team-toggle';
-  
-  const teamABtn = document.createElement('button');
-  teamABtn.className = 'team-btn' + (currentTeam === 'teamA' ? ' active' : '');
-  teamABtn.textContent = 'Team Venator';
-  teamABtn.dataset.team = 'teamA';
-  teamABtn.addEventListener('click', () => switchTeam('teamA'));
-  
-  const teamBBtn = document.createElement('button');
-  teamBBtn.className = 'team-btn' + (currentTeam === 'teamB' ? ' active' : '');
-  teamBBtn.textContent = 'Team Rupture';
-  teamBBtn.dataset.team = 'teamB';
-  teamBBtn.addEventListener('click', () => switchTeam('teamB'));
-  
-  teamToggle.appendChild(teamABtn);
-  teamToggle.appendChild(teamBBtn);
-  
-  // Admin button
-  const adminBtn = document.createElement('button');
-  adminBtn.className = 'admin-btn' + (adminMode ? ' active' : '');
-  adminBtn.innerHTML = adminMode ? '🔓 Admin Mode' : '🔒 Admin Mode';
-  adminBtn.addEventListener('click', toggleAdminMode);
-  
-  header.appendChild(teamToggle);
-  header.appendChild(adminBtn);
-  bingoSection.appendChild(header);
-  
-  // Create villages
-  BINGO_DATA.villages.forEach(village => {
-    const villageCard = createVillageCard(village);
-    bingoSection.appendChild(villageCard);
-  });
-  
-  // Insert into DOM if new
-  if (isNew) {
-    const refreshPill = document.querySelector('.refresh-pill');
-    if (refreshPill && refreshPill.parentNode) {
-      refreshPill.parentNode.insertBefore(bingoSection, refreshPill.nextSibling);
-    } else {
-      container.prepend(bingoSection);
-    }
-  }
-}
 
-function createVillageCard(village) {
-  // Check for custom cards
-  if (village.id === 1) {
-    return createCustomRaidswardCard(village);
-  }
-  if (village.id === 2) {
-    return createCustomOathboundCard(village);
-  }
-  if (village.id === 3) {
-    return createCustomSkullspireCard(village);
-  }
-  if (village.id === 4) {
-    return createCustomProspectorsCard(village);
-  }
-
-  // Default card rendering
-  const card = document.createElement('div');
-  card.className = 'village-card';
-  
-  const name = document.createElement('h3');
-  name.className = 'village-name';
-  name.textContent = village.name;
-  card.appendChild(name);
-  
-  const tilesGrid = document.createElement('div');
-  tilesGrid.className = 'tiles-grid';
-  
-  village.tiles.forEach(tile => {
-    const tileEl = createTileElement(tile);
-    tilesGrid.appendChild(tileEl);
-  });
-  
-  card.appendChild(tilesGrid);
-  return card;
-}
-
-function createCustomOathboundCard(village) {
-  const card = document.createElement('div');
-  card.className = 'village-card village-custom-oathbound';
-  
-  const container = document.createElement('div');
-  container.className = 'custom-village-container';
-  
-  // Background image - placeholder
-  const bgImage = document.createElement('img');
-  bgImage.src = './images/oathbound-oblivion.png'; // Placeholder image name
-  bgImage.alt = 'Oathbound Oblivion';
-  bgImage.className = 'village-bg-image';
-  container.appendChild(bgImage);
-  
-  // Create overlay boxes with the user's specified layout
-  const positions = [
-    { tile: village.tiles[0], position: 'tile-1', top: '21%', left: '2%', width: '20%', height: '16%' },
-    { tile: village.tiles[1], position: 'tile-2', top: '21%', left: '27%', width: '20%', height: '16%' },
-    { tile: village.tiles[2], position: 'tile-3', top: '21%', left: '52%', width: '20%', height: '16%' },
-    { tile: village.tiles[3], position: 'tile-4', top: '21%', left: '77%', width: '20%', height: '16%' },
-    { tile: village.tiles[4], position: 'tile-5', top: '41%', left: '5%', width: '20%', height: '16%' },
-    { tile: village.tiles[5], position: 'tile-6', top: '40%', left: '40%', width: '20%', height: '17%' },
-    { tile: village.tiles[6], position: 'tile-7', top: '41%', left: '75%', width: '20%', height: '16%' },
-    { tile: village.tiles[7], position: 'tile-8', top: '61%', left: '5%', width: '20%', height: '16%' },
-    { tile: village.tiles[8], position: 'tile-9', top: '61%', left: '40%', width: '20%', height: '16%' },
-    { tile: village.tiles[9], position: 'tile-10', top: '61%', left: '75%', width: '20%', height: '16%' },
-    { tile: village.tiles[10], position: 'tile-11', top: '81%', left: '5%', width: '20%', height: '16%' },
-    { tile: village.tiles[11], position: 'tile-12', top: '81%', left: '40%', width: '20%', height: '16%' },
-    { tile: village.tiles[12], position: 'tile-13', top: '81%', left: '75%', width: '20%', height: '16%' }
-  ];
-  
-  positions.forEach(pos => {
-    // Gracefully handle cases where there might be fewer tiles than positions defined
-    if (pos.tile) {
-      const overlay = createCustomTileOverlay(pos.tile, pos);
-      container.appendChild(overlay);
-    }
-  });
-  
-  card.appendChild(container);
-  return card;
-}
-
-function createCustomProspectorsCard(village) {
-  const card = document.createElement('div');
-  card.className = 'village-card village-custom-prospectors';
-  
-  const container = document.createElement('div');
-  container.className = 'custom-village-container';
-  
-  // Background image - placeholder
-  const bgImage = document.createElement('img');
-  bgImage.src = './images/prospectors-rest.png'; // Placeholder image name
-  bgImage.alt = 'Prospector\'s Rest';
-  bgImage.className = 'village-bg-image';
-  container.appendChild(bgImage);
-  
-  // Create overlay boxes with the user's specified layout
-  const positions = [
-    { tile: village.tiles[0], position: 'tile-1', top: '28%', left: '6%', width: '23%', height: '18%' },
-    { tile: village.tiles[1], position: 'tile-2', top: '54%', left: '6%', width: '23%', height: '18%' },
-    { tile: village.tiles[2], position: 'tile-3', top: '40%', left: '39%', width: '22%', height: '18%' },
-    { tile: village.tiles[3], position: 'tile-4', top: '27%', left: '71%', width: '22%', height: '19%' },
-    { tile: village.tiles[4], position: 'tile-5', top: '54%', left: '71%', width: '22%', height: '17%' },
-    { tile: village.tiles[5], position: 'tile-6', top: '80%', left: '18%', width: '22%', height: '17%' },
-    { tile: village.tiles[6], position: 'tile-7', top: '80%', left: '59%', width: '23%', height: '18%' }
-  ];
-  
-  positions.forEach(pos => {
-    // Gracefully handle cases where there might be fewer tiles than positions defined
-    if (pos.tile) {
-      const overlay = createCustomTileOverlay(pos.tile, pos);
-      container.appendChild(overlay);
-    }
-  });
-  
-  card.appendChild(container);
-  return card;
-}
-
-function createCustomSkullspireCard(village) {
-  const card = document.createElement('div');
-  card.className = 'village-card village-custom-skullspire';
-  
-  const container = document.createElement('div');
-  container.className = 'custom-village-container';
-  
-  // Background image - placeholder
-  const bgImage = document.createElement('img');
-  bgImage.src = './images/skullspire-outpost.png'; // Placeholder image name
-  bgImage.alt = 'Skullspire Outpost';
-  bgImage.className = 'village-bg-image';
-  container.appendChild(bgImage);
-  
-  // Create overlay boxes with the user's specified layout
-  const positions = [
-    { tile: village.tiles[0], position: 'tile-1', top: '33%', left: '3%', width: '26%', height: '21%' },
-    { tile: village.tiles[1], position: 'tile-2', top: '33%', left: '37%', width: '26%', height: '21%' },
-    { tile: village.tiles[2], position: 'tile-3', top: '33%', left: '70%', width: '26%', height: '21%' },
-    { tile: village.tiles[3], position: 'tile-4', top: '65%', left: '3%', width: '26%', height: '21%' },
-    { tile: village.tiles[4], position: 'tile-5', top: '65%', left: '37%', width: '26%', height: '21%' },
-    { tile: village.tiles[5], position: 'tile-6', top: '65%', left: '70%', width: '26%', height: '21%' }
-  ];
-  
-  positions.forEach(pos => {
-    // Gracefully handle cases where there might be fewer tiles than positions defined
-    if (pos.tile) {
-      const overlay = createCustomTileOverlay(pos.tile, pos);
-      container.appendChild(overlay);
-    }
-  });
-  
-  card.appendChild(container);
-  return card;
-}
-
-function createCustomRaidswardCard(village) {
-  const card = document.createElement('div');
-  card.className = 'village-card village-custom-raidsward';
-  
-  const container = document.createElement('div');
-  container.className = 'custom-village-container';
-  
-  // Background image - placeholder until user provides the real one
-  const bgImage = document.createElement('img');
-  // TODO: Replace with the actual path to the image when available.
-  bgImage.src = './images/raidsward-enclave.png'; 
-  bgImage.alt = 'Raidsward Enclave';
-  bgImage.className = 'village-bg-image';
-  container.appendChild(bgImage);
-  
-  // Create overlay boxes
-  const positions = [
-    { tile: village.tiles[0], position: 'top-left', top: '32%', left: '5%', width: '20%', height: '16%' },
-    { tile: village.tiles[1], position: 'top-center', top: '32%', left: '40%', width: '20%', height: '16%' },
-    { tile: village.tiles[2], position: 'top-right', top: '32%', left: '75%', width: '20%', height: '16%' },
-    { tile: village.tiles[3], position: 'mid-left', top: '52%', left: '5%', width: '20%', height: '16%' },
-    { tile: village.tiles[4], position: 'mid-center', top: '52%', left: '40%', width: '20%', height: '16%' },
-    { tile: village.tiles[5], position: 'mid-right', top: '52%', left: '75%', width: '20%', height: '16%' },
-    { tile: village.tiles[6], position: 'bottom-full', top: '71%', left: '40%', width: '20%', height: '17%' }
-  ];
-  
-  positions.forEach(pos => {
-    const overlay = createCustomTileOverlay(pos.tile, pos);
-    container.appendChild(overlay);
-  });
-  
-  card.appendChild(container);
-  return card;
-}
-
-function createCustomTileOverlay(tile, position) {
-  const count = bingoState[currentTeam][tile.id] || 0;
-  
-  const overlay = document.createElement('div');
-  overlay.className = 'custom-tile-overlay' + (adminMode ? ' admin-active' : '');
-  overlay.dataset.tileId = tile.id;
-  overlay.dataset.position = position.position;
-  overlay.dataset.count = count;
-  
-  // Position styling
-  overlay.style.top = position.top;
-  overlay.style.left = position.left;
-  overlay.style.width = position.width;
-  overlay.style.height = position.height;
-  
-  if (adminMode) {
-    overlay.addEventListener('click', () => handleTileClick(tile.id));
-  }
-  
-  // Glow effect
-  const glow = document.createElement('div');
-  glow.className = 'tile-glow';
-  overlay.appendChild(glow);
-  
-  // Count badge
-  const badge = document.createElement('div');
-  badge.className = 'tile-count-badge';
-  badge.textContent = `${count}/${tile.maxCount}`;
-  overlay.appendChild(badge);
-  
-  return overlay;
-}
-
-function createTileElement(tile) {
-  const count = bingoState[currentTeam][tile.id] || 0;
-  
-  const tileEl = document.createElement('div');
-  tileEl.className = 'bingo-tile' + (adminMode ? ' admin-active' : '');
-  tileEl.dataset.tileId = tile.id;
-  tileEl.dataset.count = count;
-  
-  if (adminMode) {
-    tileEl.addEventListener('click', () => handleTileClick(tile.id));
-  }
-  
-  const tileName = document.createElement('div');
-  tileName.className = 'tile-name';
-  tileName.textContent = tile.name;
-  
-  const tileCount = document.createElement('div');
-  tileCount.className = 'tile-count';
-  tileCount.textContent = `${count}/${tile.maxCount}`;
-  
-  tileEl.appendChild(tileName);
-  tileEl.appendChild(tileCount);
-  
-  return tileEl;
-}
-
-function switchTeam(team) {
-  currentTeam = team;
-  
-  // Update button states
-  document.querySelectorAll('.team-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.team === team);
-  });
-  
-  // Re-render bingo section to show new team's data
-  renderBingoSection();
-}
-
-function toggleAdminMode() {
-  if (!adminMode) {
-    const password = prompt('Enter admin password:');
-    if (password === ADMIN_PASSWORD) {
-      adminMode = true;
-      renderBingoSection();
-    } else {
-      alert('Incorrect password!');
-    }
-  } else {
-    adminMode = false;
-    renderBingoSection();
-  }
-}
-
-function handleTileClick(tileId) {
-  if (!adminMode) return;
-  
-  const tile = BINGO_DATA.villages.flatMap(v => v.tiles).find(t => t.id === tileId);
-  if (!tile) return;
-
-  const currentCount = bingoState[currentTeam][tileId] || 0;
-  const newCount = (currentCount + 1) % (tile.maxCount + 1); // Cycle 0-1-2-3-0 for maxCount 3
-  
-  bingoState[currentTeam][tileId] = newCount;
-  
-  // Update the tile display (works for both normal and custom tiles)
-  const tileEl = document.querySelector(`[data-tile-id="${tileId}"]`);
-  if (tileEl) {
-    tileEl.dataset.count = newCount;
-    const countEl = tileEl.querySelector('.tile-count, .tile-count-badge');
-    if (countEl) {
-      countEl.textContent = `${newCount}/${tile.maxCount}`;
-    }
-  }
-  
-  // Save to cloud
-  saveBingoState();
-}
-
-async function saveBingoState() {
-  // Skip if no API key configured
-  if (!JSONBIN_API_KEY || JSONBIN_API_KEY.includes('YOUR_')) {
-    console.warn('JSONBin API not configured. State will not persist.');
-    return;
-  }
-  
-  try {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_API_KEY
-      },
-      body: JSON.stringify(bingoState)
-    });
-    
-    if (!response.ok) {
-      console.error('Failed to save bingo state:', response.status);
-    }
-  } catch (err) {
-    console.error('Error saving bingo state:', err);
-  }
-}
-
-async function loadBingoState() {
-  // Skip if no API key configured
-  if (!JSONBIN_API_KEY || JSONBIN_API_KEY.includes('YOUR_')) {
-    console.log('JSONBin API not configured. Using default state.');
-    return;
-  }
-  
-  try {
-    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-      headers: {
-        'X-Master-Key': JSONBIN_API_KEY
-      }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      bingoState = data.record || { teamA: {}, teamB: {} };
-      console.log('Loaded bingo state from cloud');
-    }
-  } catch (err) {
-    console.error('Error loading bingo state:', err);
-  }
-}
 
 function renderRefreshPill(lastIso) {
   const container = document.querySelector('.container') || document.body;
@@ -805,6 +323,33 @@ function renderRefreshPill(lastIso) {
     } else {
       container.prepend(wrap);
     }
+  }
+}
+
+function renderBingoHomageSection() {
+  const container = document.querySelector('.container') || document.body;
+
+  let bingoSection = document.createElement('div');
+  bingoSection.className = 'bingo-section';
+
+  const img = document.createElement('img');
+  img.src = './images/bingo_over.png';
+  img.alt = 'Bingo Homage';
+  img.style.maxWidth = '100%';
+  img.style.borderRadius = '8px';
+
+  const text = document.createElement('p');
+text.style.color = '#f5f5f5';
+text.style.textAlign = 'center';
+
+  bingoSection.appendChild(img);
+  bingoSection.appendChild(text);
+
+  const refreshPill = document.querySelector('.refresh-pill');
+  if (refreshPill && refreshPill.parentNode) {
+    refreshPill.parentNode.insertBefore(bingoSection, refreshPill.nextSibling);
+  } else {
+    container.prepend(bingoSection);
   }
 }
 
@@ -1594,12 +1139,9 @@ async function main() {
     .pop();
   renderRefreshPill(lastIso);
   
-  // Load bingo state from cloud before rendering
-  await loadBingoState();
-  
-  // Render bingo section
-  renderBingoSection();
-  
+  // Render bingo homage section
+  renderBingoHomageSection();
+
   // Apply initial bingo state
   const bingoOn = getShowBingoPref();
   document.body.classList.toggle('show-bingo', bingoOn);
