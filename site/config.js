@@ -60,7 +60,7 @@ export const CONFIG = {
         'Crazy Archaeologist', 'Dagannoth Prime', 'Dagannoth Rex', 'Dagannoth Supreme',
         'Deranged Archaeologist', 'Doom of Mokhaiotl', 'Duke Sucellus', 'General Graardor', 'Giant Mole',
         'Grotesque Guardians', 'Hespori', 'Kalphite Queen', 'King Black Dragon',
-        'Kraken', "Kree'Arra", "K'ril Tsutsaroth", 'Lunar Chests', 'Mimic',
+        'Kraken', "Kree'Arra", "K'ril Tsutsaroth", 'Lunar Chests', 'Mimic', "Maggot King",
         'Nex', 'Nightmare', "Phosani's Nightmare", 'Obor', 'Phantom Muspah',
         'Sarachnis', 'Scorpia', 'Scurrius', 'Shellbane Gryphon', 'Skotizo', 'Sol Heredit',
         'Spindel', 'The Gauntlet', 'The Corrupted Gauntlet', 'The Hueycoatl',
